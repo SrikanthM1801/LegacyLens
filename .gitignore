@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Secrets
+.env
+
+# Generated state (sample data IS committed; graph/index state is not)
+data/graph.json
+data/.state/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/

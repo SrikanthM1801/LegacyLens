@@ -1,0 +1,16 @@
+# LegacyLens backend — Python 3.11+
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+networkx==3.4.2
+
+# Azure (only used when USE_MOCKS=false)
+openai==1.57.0
+azure-search-documents==11.5.2
+azure-core==1.32.0
+
+# dev / test
+pytest==8.3.4
+httpx==0.28.1
