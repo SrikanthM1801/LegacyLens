@@ -20,7 +20,7 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [x] **T06 Dataset tests** — re-run gives byte-identical output; planted facts present; every record validates against `models.py`. *Deps:* T03–T05.
 
 ## Phase 2 — Ingestion & graph
-- [ ] **T07 Loaders + normalizer** — `ingestion/loaders.py`: read `data/sample/*.json` → `list[Artifact]`, de-dupe on `source_id`.
+- [x] **T07 Loaders + normalizer** — `ingestion/loaders.py`: read `data/sample/*.json` → `list[Artifact]`, de-dupe on `source_id`.
 - [ ] **T08 PII redactor** — `ingestion/redactor.py`: phone numbers, external emails, card numbers → placeholders; pure function + tests.
 - [ ] **T09 Chunker** — `ingestion/chunker.py`: `Artifact` → `Chunk`s (900/150 chars, sentence-aware), carries title/author/type/timestamp.
 - [ ] **T10 GraphStore** — `graph/store.py` interface + `graph/networkx_store.py`: add/get nodes & edges, neighbors, stats, save/load `graph.json`, weights accumulate with evidence ids.
