@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ravi",
+    "name": "Ravi Kumar",
+    "role": "Senior Backend Engineer",
+    "email": "ravi.kumar@contoso-payments.com",
+    "teams_handle": "@ravi",
+    "aliases": [
+      "Ravi",
+      "ravi.k"
+    ],
+    "is_departing": true,
+    "departure_date": "2026-11-15T00:00:00Z"
+  },
+  {
+    "id": "priya",
+    "name": "Priya Nair",
+    "role": "Solution Architect",
+    "email": "priya.nair@contoso-payments.com",
+    "teams_handle": "@priya",
+    "aliases": [
+      "Priya",
+      "priya.n"
+    ],
+    "is_departing": false,
+    "departure_date": null
+  },
+  {
+    "id": "arjun",
+    "name": "Arjun Mehta",
+    "role": "Support Lead",
+    "email": "arjun.mehta@contoso-payments.com",
+    "teams_handle": "@arjun",
+    "aliases": [
+      "Arjun",
+      "arjun.m"
+    ],
+    "is_departing": false,
+    "departure_date": null
+  },
+  {
+    "id": "meera",
+    "name": "Meera Iyer",
+    "role": "Software Engineer (new joiner)",
+    "email": "meera.iyer@contoso-payments.com",
+    "teams_handle": "@meera",
+    "aliases": [
+      "Meera",
+      "meera.i"
+    ],
+    "is_departing": false,
+    "departure_date": null
+  }
+]

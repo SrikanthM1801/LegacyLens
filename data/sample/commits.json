@@ -1,0 +1,943 @@
+[
+  {
+    "id": "art_commit_5b88719348",
+    "type": "commit",
+    "source_id": "5b88719348",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-03-25T10:00:00Z",
+    "title": "Provision Kafka topics for payment events (PAY-118)",
+    "body": "Provision Kafka topics for payment events (PAY-118)\n\nFiles changed:\n- infra/kafka/topics.tf",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/5b88719348",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "5b88719348",
+      "files": [
+        "infra/kafka/topics.tf"
+      ],
+      "systems": [
+        "kafka-event-bus"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_73eff9b1ef",
+    "type": "commit",
+    "source_id": "73eff9b1ef",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-04-14T10:10:00Z",
+    "title": "Add payment gateway adapter skeleton",
+    "body": "Add payment gateway adapter skeleton\n\nFiles changed:\n- services/pg_adapter/client.py\n- services/pg_adapter/config.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/73eff9b1ef",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "73eff9b1ef",
+      "files": [
+        "services/pg_adapter/client.py",
+        "services/pg_adapter/config.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_77a36f55da",
+    "type": "commit",
+    "source_id": "77a36f55da",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-04-22T15:30:00Z",
+    "title": "Implement authorisation call with retries to gateway",
+    "body": "Implement authorisation call with retries to gateway\n\nFiles changed:\n- services/pg_adapter/client.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/77a36f55da",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "77a36f55da",
+      "files": [
+        "services/pg_adapter/client.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_a5b823680b",
+    "type": "commit",
+    "source_id": "a5b823680b",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-04-30T09:00:00Z",
+    "title": "Add settlement batch job entrypoint",
+    "body": "Add settlement batch job entrypoint\n\nFiles changed:\n- services/settlement/settlement_batch.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/a5b823680b",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "a5b823680b",
+      "files": [
+        "services/settlement/settlement_batch.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_14e4833bb3",
+    "type": "commit",
+    "source_id": "14e4833bb3",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-05-05T12:00:00Z",
+    "title": "Add OAuth client credentials flow",
+    "body": "Add OAuth client credentials flow\n\nFiles changed:\n- services/auth/oauth.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/14e4833bb3",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "14e4833bb3",
+      "files": [
+        "services/auth/oauth.py"
+      ],
+      "systems": [
+        "api-authentication"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_47966e690e",
+    "type": "commit",
+    "source_id": "47966e690e",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-05-06T11:00:00Z",
+    "title": "Add connection pool to gateway adapter",
+    "body": "Add connection pool to gateway adapter\n\nFiles changed:\n- services/pg_adapter/pool.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/47966e690e",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "47966e690e",
+      "files": [
+        "services/pg_adapter/pool.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_7e04f99332",
+    "type": "commit",
+    "source_id": "7e04f99332",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-05-20T13:30:00Z",
+    "title": "Settlement: add bank file SFTP fetcher",
+    "body": "Settlement: add bank file SFTP fetcher\n\nFiles changed:\n- services/settlement/bank_fetch.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/7e04f99332",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "7e04f99332",
+      "files": [
+        "services/settlement/bank_fetch.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_8d8a90767b",
+    "type": "commit",
+    "source_id": "8d8a90767b",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-06-10T10:30:00Z",
+    "title": "Add release pipeline definition",
+    "body": "Add release pipeline definition\n\nFiles changed:\n- ci/release.yml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/8d8a90767b",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "8d8a90767b",
+      "files": [
+        "ci/release.yml"
+      ],
+      "systems": [
+        "release-process"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_2189c9f7c1",
+    "type": "commit",
+    "source_id": "2189c9f7c1",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-06-20T16:45:00Z",
+    "title": "Add Kafka consumer for settlement events (PAY-204)",
+    "body": "Add Kafka consumer for settlement events (PAY-204)\n\nFiles changed:\n- services/consumers/settlement_events.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/2189c9f7c1",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "2189c9f7c1",
+      "files": [
+        "services/consumers/settlement_events.py"
+      ],
+      "systems": [
+        "kafka-event-bus",
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_024d3feb54",
+    "type": "commit",
+    "source_id": "024d3feb54",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-06-25T10:10:00Z",
+    "title": "Settlement: reconciliation step against bank statement",
+    "body": "Settlement: reconciliation step against bank statement\n\nFiles changed:\n- services/settlement/reconcile.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/024d3feb54",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "024d3feb54",
+      "files": [
+        "services/settlement/reconcile.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_63702dd806",
+    "type": "commit",
+    "source_id": "63702dd806",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-07-08T09:20:00Z",
+    "title": "Gateway adapter: map partner error codes",
+    "body": "Gateway adapter: map partner error codes\n\nFiles changed:\n- services/pg_adapter/errors.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/63702dd806",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "63702dd806",
+      "files": [
+        "services/pg_adapter/errors.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_cd63961bd3",
+    "type": "commit",
+    "source_id": "cd63961bd3",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-08-05T15:00:00Z",
+    "title": "Settlement: add --idempotency-key to prevent double payout",
+    "body": "Settlement: add --idempotency-key to prevent double payout\n\nFiles changed:\n- services/settlement/settlement_batch.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/cd63961bd3",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "cd63961bd3",
+      "files": [
+        "services/settlement/settlement_batch.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_dbb73023a0",
+    "type": "commit",
+    "source_id": "dbb73023a0",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-08-19T14:00:00Z",
+    "title": "Add gwctl CLI for pool inspection",
+    "body": "Add gwctl CLI for pool inspection\n\nFiles changed:\n- services/pg_adapter/gwctl.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/dbb73023a0",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "dbb73023a0",
+      "files": [
+        "services/pg_adapter/gwctl.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_90a0f4f633",
+    "type": "commit",
+    "source_id": "90a0f4f633",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-09-15T11:00:00Z",
+    "title": "Add architecture overview diagram",
+    "body": "Add architecture overview diagram\n\nFiles changed:\n- docs/architecture.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/90a0f4f633",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "90a0f4f633",
+      "files": [
+        "docs/architecture.md"
+      ],
+      "systems": [
+        "architecture"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_6023b3f880",
+    "type": "commit",
+    "source_id": "6023b3f880",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-10-02T09:45:00Z",
+    "title": "Increase Kafka partitions to 12",
+    "body": "Increase Kafka partitions to 12\n\nFiles changed:\n- infra/kafka/topics.tf",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/6023b3f880",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "6023b3f880",
+      "files": [
+        "infra/kafka/topics.tf"
+      ],
+      "systems": [
+        "kafka-event-bus"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_52f2f6bfa5",
+    "type": "commit",
+    "source_id": "52f2f6bfa5",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2025-11-03T10:40:00Z",
+    "title": "Gateway adapter: add gwctl drain command (INC-142)",
+    "body": "Gateway adapter: add gwctl drain command (INC-142)\n\nFiles changed:\n- services/pg_adapter/gwctl.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/52f2f6bfa5",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "52f2f6bfa5",
+      "files": [
+        "services/pg_adapter/gwctl.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_603a29f790",
+    "type": "commit",
+    "source_id": "603a29f790",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-12-12T06:40:00Z",
+    "title": "Settlement: add --skip-recon and --recon-only flags (INC-150)",
+    "body": "Settlement: add --skip-recon and --recon-only flags (INC-150)\n\nFiles changed:\n- services/settlement/settlement_batch.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/603a29f790",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "603a29f790",
+      "files": [
+        "services/settlement/settlement_batch.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_cca04b3799",
+    "type": "commit",
+    "source_id": "cca04b3799",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-01-15T09:30:00Z",
+    "title": "Fix release checklist step order (PAY-290)",
+    "body": "Fix release checklist step order (PAY-290)\n\nFiles changed:\n- docs/release-checklist.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/cca04b3799",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "cca04b3799",
+      "files": [
+        "docs/release-checklist.md"
+      ],
+      "systems": [
+        "release-process"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_7e222336c7",
+    "type": "commit",
+    "source_id": "7e222336c7",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-01-19T14:50:00Z",
+    "title": "Lower POOL_MAX_IDLE_SECONDS to 45 for gateway pool (INC-155)",
+    "body": "Lower POOL_MAX_IDLE_SECONDS to 45 for gateway pool (INC-155)\n\nFiles changed:\n- services/pg_adapter/config.py\n- deploy/pg-adapter-configmap.yaml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/7e222336c7",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "7e222336c7",
+      "files": [
+        "services/pg_adapter/config.py",
+        "deploy/pg-adapter-configmap.yaml"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_ffd10f7dc2",
+    "type": "commit",
+    "source_id": "ffd10f7dc2",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-02-10T11:15:00Z",
+    "title": "Rotate API signing keys (PAY-301)",
+    "body": "Rotate API signing keys (PAY-301)\n\nFiles changed:\n- services/auth/jwks.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/ffd10f7dc2",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "ffd10f7dc2",
+      "files": [
+        "services/auth/jwks.py"
+      ],
+      "systems": [
+        "api-authentication"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_0158131cb1",
+    "type": "commit",
+    "source_id": "0158131cb1",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-03-02T09:30:00Z",
+    "title": "Settlement: add shift_refunds.sql for cut-off mismatches (INC-163)",
+    "body": "Settlement: add shift_refunds.sql for cut-off mismatches (INC-163)\n\nFiles changed:\n- services/settlement/scripts/shift_refunds.sql",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/0158131cb1",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "0158131cb1",
+      "files": [
+        "services/settlement/scripts/shift_refunds.sql"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_c45c1991c5",
+    "type": "commit",
+    "source_id": "c45c1991c5",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-03-20T15:00:00Z",
+    "title": "Fix docker compose memory limits in onboarding",
+    "body": "Fix docker compose memory limits in onboarding\n\nFiles changed:\n- docker-compose.yml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/c45c1991c5",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "c45c1991c5",
+      "files": [
+        "docker-compose.yml"
+      ],
+      "systems": [
+        "onboarding"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_cfa82f7ecb",
+    "type": "commit",
+    "source_id": "cfa82f7ecb",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-04-08T12:00:00Z",
+    "title": "Make PARTNER_CERT_PIN configurable in gateway adapter (INC-171)",
+    "body": "Make PARTNER_CERT_PIN configurable in gateway adapter (INC-171)\n\nFiles changed:\n- services/pg_adapter/tls.py\n- deploy/pg-adapter-configmap.yaml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/cfa82f7ecb",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "cfa82f7ecb",
+      "files": [
+        "services/pg_adapter/tls.py",
+        "deploy/pg-adapter-configmap.yaml"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_4d16a87aae",
+    "type": "commit",
+    "source_id": "4d16a87aae",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-04-14T10:00:00Z",
+    "title": "Add unit tests for checkout API validation",
+    "body": "Add unit tests for checkout API validation\n\nFiles changed:\n- tests/test_checkout.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/4d16a87aae",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "4d16a87aae",
+      "files": [
+        "tests/test_checkout.py"
+      ],
+      "systems": [
+        "checkout-api"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_9cbc177a0a",
+    "type": "commit",
+    "source_id": "9cbc177a0a",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-04-22T11:00:00Z",
+    "title": "Add refunds OAuth scope to client registry (PAY-312)",
+    "body": "Add refunds OAuth scope to client registry (PAY-312)\n\nFiles changed:\n- services/auth/scopes.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/9cbc177a0a",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "9cbc177a0a",
+      "files": [
+        "services/auth/scopes.py"
+      ],
+      "systems": [
+        "api-authentication"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_489a4d199d",
+    "type": "commit",
+    "source_id": "489a4d199d",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2026-04-22T11:30:00Z",
+    "title": "Document refunds scope in API auth guide (PAY-312)",
+    "body": "Document refunds scope in API auth guide (PAY-312)\n\nFiles changed:\n- docs/api-auth.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/489a4d199d",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "489a4d199d",
+      "files": [
+        "docs/api-auth.md"
+      ],
+      "systems": [
+        "api-authentication"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_e5fcc7034a",
+    "type": "commit",
+    "source_id": "e5fcc7034a",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-05-08T16:00:00Z",
+    "title": "Automate staging deploy job (PAY-318)",
+    "body": "Automate staging deploy job (PAY-318)\n\nFiles changed:\n- ci/deploy-staging.yml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/e5fcc7034a",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "e5fcc7034a",
+      "files": [
+        "ci/deploy-staging.yml"
+      ],
+      "systems": [
+        "release-process"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_af11a49704",
+    "type": "commit",
+    "source_id": "af11a49704",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-05-19T14:20:00Z",
+    "title": "Add retry to checkout idempotency lookup",
+    "body": "Add retry to checkout idempotency lookup\n\nFiles changed:\n- services/checkout/idempotency.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/af11a49704",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "af11a49704",
+      "files": [
+        "services/checkout/idempotency.py"
+      ],
+      "systems": [
+        "checkout-api"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_b21fa7734d",
+    "type": "commit",
+    "source_id": "b21fa7734d",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-06-04T12:00:00Z",
+    "title": "Make token TTL configurable (PAY-327)",
+    "body": "Make token TTL configurable (PAY-327)\n\nFiles changed:\n- services/auth/oauth.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/b21fa7734d",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "b21fa7734d",
+      "files": [
+        "services/auth/oauth.py"
+      ],
+      "systems": [
+        "api-authentication"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_cd3b2e1c3c",
+    "type": "commit",
+    "source_id": "cd3b2e1c3c",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-06-15T06:45:00Z",
+    "title": "Settlement: add new column to bank_schema.yaml (INC-180)",
+    "body": "Settlement: add new column to bank_schema.yaml (INC-180)\n\nFiles changed:\n- services/settlement/config/bank_schema.yaml",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/cd3b2e1c3c",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "cd3b2e1c3c",
+      "files": [
+        "services/settlement/config/bank_schema.yaml"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_2bb42b7862",
+    "type": "commit",
+    "source_id": "2bb42b7862",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-07-01T16:00:00Z",
+    "title": "Fix rounding bug in fee display (PAY-335)",
+    "body": "Fix rounding bug in fee display (PAY-335)\n\nFiles changed:\n- services/checkout/fees.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/2bb42b7862",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "2bb42b7862",
+      "files": [
+        "services/checkout/fees.py"
+      ],
+      "systems": [
+        "checkout-api"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_7cd7d699dd",
+    "type": "commit",
+    "source_id": "7cd7d699dd",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-07-14T10:20:00Z",
+    "title": "Settlement: log row counts after each stage",
+    "body": "Settlement: log row counts after each stage\n\nFiles changed:\n- services/settlement/settlement_batch.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/7cd7d699dd",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "7cd7d699dd",
+      "files": [
+        "services/settlement/settlement_batch.py"
+      ],
+      "systems": [
+        "settlement-batch-job"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_939b9dc857",
+    "type": "commit",
+    "source_id": "939b9dc857",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-07-22T19:30:00Z",
+    "title": "Gateway pool: allow POOL_MAX_SIZE override (INC-188)",
+    "body": "Gateway pool: allow POOL_MAX_SIZE override (INC-188)\n\nFiles changed:\n- services/pg_adapter/pool.py\n- services/pg_adapter/config.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/939b9dc857",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "939b9dc857",
+      "files": [
+        "services/pg_adapter/pool.py",
+        "services/pg_adapter/config.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_5d8fdbae7f",
+    "type": "commit",
+    "source_id": "5d8fdbae7f",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2026-08-04T09:00:00Z",
+    "title": "Update onboarding for new dev environment (PAY-340)",
+    "body": "Update onboarding for new dev environment (PAY-340)\n\nFiles changed:\n- docs/onboarding.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/5d8fdbae7f",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "5d8fdbae7f",
+      "files": [
+        "docs/onboarding.md"
+      ],
+      "systems": [
+        "onboarding"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_b04176ef75",
+    "type": "commit",
+    "source_id": "b04176ef75",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-08-04T10:30:00Z",
+    "title": "Update onboarding steps I hit while setting up (PAY-340)",
+    "body": "Update onboarding steps I hit while setting up (PAY-340)\n\nFiles changed:\n- docs/onboarding.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/b04176ef75",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "b04176ef75",
+      "files": [
+        "docs/onboarding.md"
+      ],
+      "systems": [
+        "onboarding"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_d6e91f949d",
+    "type": "commit",
+    "source_id": "d6e91f949d",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-08-06T14:00:00Z",
+    "title": "Onboarding: add access checklist (PAY-341)",
+    "body": "Onboarding: add access checklist (PAY-341)\n\nFiles changed:\n- docs/onboarding.md",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/d6e91f949d",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "d6e91f949d",
+      "files": [
+        "docs/onboarding.md"
+      ],
+      "systems": [
+        "onboarding"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_b6a1e3e0ec",
+    "type": "commit",
+    "source_id": "b6a1e3e0ec",
+    "author": "ravi",
+    "participants": [],
+    "timestamp": "2026-08-11T10:00:00Z",
+    "title": "Gateway adapter: log stale connection count",
+    "body": "Gateway adapter: log stale connection count\n\nFiles changed:\n- services/pg_adapter/pool.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/b6a1e3e0ec",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "b6a1e3e0ec",
+      "files": [
+        "services/pg_adapter/pool.py"
+      ],
+      "systems": [
+        "payment-gateway"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_c455991ad8",
+    "type": "commit",
+    "source_id": "c455991ad8",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-08-20T13:00:00Z",
+    "title": "Add checkout p95 latency dashboard (PAY-350)",
+    "body": "Add checkout p95 latency dashboard (PAY-350)\n\nFiles changed:\n- dashboards/checkout_latency.json",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/c455991ad8",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "c455991ad8",
+      "files": [
+        "dashboards/checkout_latency.json"
+      ],
+      "systems": [
+        "checkout-api"
+      ],
+      "repo": "payments-platform"
+    }
+  },
+  {
+    "id": "art_commit_0619116052",
+    "type": "commit",
+    "source_id": "0619116052",
+    "author": "meera",
+    "participants": [],
+    "timestamp": "2026-09-09T11:00:00Z",
+    "title": "Add tests for Kafka consumer offset handling",
+    "body": "Add tests for Kafka consumer offset handling\n\nFiles changed:\n- tests/test_consumers.py",
+    "url_or_path": "https://git.contoso-payments.example/payments/commit/0619116052",
+    "tags": [
+      "commit"
+    ],
+    "metadata": {
+      "sha": "0619116052",
+      "files": [
+        "tests/test_consumers.py"
+      ],
+      "systems": [
+        "kafka-event-bus"
+      ],
+      "repo": "payments-platform"
+    }
+  }
+]

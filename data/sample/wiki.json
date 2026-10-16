@@ -1,0 +1,150 @@
+[
+  {
+    "id": "art_doc_coding-standards",
+    "type": "doc",
+    "source_id": "wiki/coding-standards",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-04-01T10:00:00Z",
+    "title": "Coding Standards",
+    "body": "# Coding Standards\n\n- Python 3.11, type hints everywhere, `ruff` and `black` in CI.\n- Every PR needs one reviewer and passing tests.\n- Commit messages use the imperative mood and reference the ticket key.\n- No secrets in code; use the key vault.",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/coding-standards",
+    "tags": [
+      "engineering"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "priya",
+        "ravi"
+      ]
+    }
+  },
+  {
+    "id": "art_doc_api-authentication",
+    "type": "doc",
+    "source_id": "wiki/api-authentication",
+    "author": "priya",
+    "participants": [
+      "arjun",
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2025-05-05T10:00:00Z",
+    "title": "API Authentication Guide",
+    "body": "# API Authentication Guide\n\nAll public APIs use OAuth 2.0 client credentials with signed JWT access tokens.\n\n## Tokens\nTokens are valid for 15 minutes by default. Batch clients can request a longer lifetime via\n`TOKEN_TTL_SECONDS` (maximum 4 hours) in their client config.\n\n## Scopes\n`payments:read`, `payments:write`, `refunds:write`, `settlements:read`. Request only what a client needs.\n\n## Signing keys\nSigning keys are rotated quarterly. To rotate: generate a new key pair in the key vault, publish the new public\nkey to the JWKS endpoint, switch the signer, wait 24 hours, then retire the old key.\n\n## Troubleshooting 401s\nCheck token expiry first, then scope, then clock skew (more than 60 seconds breaks validation).",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/api-authentication",
+    "tags": [
+      "api-auth",
+      "security"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "arjun",
+        "meera",
+        "priya",
+        "ravi"
+      ]
+    }
+  },
+  {
+    "id": "art_doc_release-process",
+    "type": "doc",
+    "source_id": "wiki/release-process",
+    "author": "priya",
+    "participants": [
+      "arjun",
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2025-06-10T10:00:00Z",
+    "title": "Release Process",
+    "body": "# Release Process\n\nReleases go out every second Tuesday. Anyone on the team can run one by following this page.\n\n## Steps\n1. Freeze `main` on Monday 16:00 and confirm CI is green.\n2. Cut the release branch `release/YYYY-MM-DD` and tag it.\n3. Deploy to staging with the pipeline job `deploy-staging` (automated since PAY-318).\n4. Run the smoke test suite and check the checkout latency dashboard.\n5. Switch traffic gradually: 5%, 25%, 100% with ten minutes between steps.\n6. Announce in #payments-dev and update the changelog.\n\n## Hotfix flow\nBranch from the last release tag, fix, run smoke tests, deploy straight to production with approval from one\nother engineer, then merge back to `main`.\n\n## Rollback\nRe-deploy the previous tag with `deploy-prod --tag <previous>`. Rollbacks need no approval.",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/release-process",
+    "tags": [
+      "release",
+      "process"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "arjun",
+        "meera",
+        "priya",
+        "ravi"
+      ]
+    }
+  },
+  {
+    "id": "art_doc_onboarding-guide",
+    "type": "doc",
+    "source_id": "wiki/onboarding-guide",
+    "author": "priya",
+    "participants": [
+      "arjun",
+      "meera"
+    ],
+    "timestamp": "2025-07-01T10:00:00Z",
+    "title": "Onboarding Guide",
+    "body": "# Onboarding Guide\n\nWelcome! This guide gets a new engineer productive in the first week.\n\n## Day 1: access checklist\nRequest: GitHub org, the CI system, the tracker, wiki, Teams channels (#payments-dev, #payments-oncall),\nGrafana, and the staging VPN. Your buddy approves the requests.\n\n## Environment setup\n1. Clone the monorepo and install Docker Desktop.\n2. Run `make dev-up` to start the services with docker compose.\n3. Run `make seed` to load sample data, then `make test`.\n\n## Troubleshooting\n- Docker compose fails: increase Docker memory to 8 GB and re-run `make dev-up`.\n- Port 5432 busy: stop your local Postgres.\n\n## First-week plan\nDay 2 read the architecture overview; Day 3 pick a starter ticket; Day 5 ship your first change.",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/onboarding-guide",
+    "tags": [
+      "onboarding"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "arjun",
+        "meera",
+        "priya"
+      ]
+    }
+  },
+  {
+    "id": "art_doc_support-basics",
+    "type": "doc",
+    "source_id": "wiki/support-basics",
+    "author": "arjun",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2025-08-12T10:00:00Z",
+    "title": "Support Escalation Basics",
+    "body": "# Support Escalation Basics\n\n## Severity levels\nP1: payments failing for many merchants. P2: degraded or single-merchant impact. P3: questions.\n\n## Escalation\nPost in #payments-oncall with the ticket key and impact. P1 pages the on-call engineer. Update the status page\nevery 30 minutes during a P1 and write a short summary when it closes.\n\n## Customer communication\nUse the approved templates in the support folder; never promise a resolution time.",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/support-basics",
+    "tags": [
+      "support",
+      "process"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "arjun",
+        "priya"
+      ]
+    }
+  },
+  {
+    "id": "art_doc_architecture-overview",
+    "type": "doc",
+    "source_id": "wiki/architecture-overview",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-09-15T10:00:00Z",
+    "title": "Architecture Overview",
+    "body": "# Architecture Overview\n\nHigh-level view of the Payments Platform.\n\n- **Checkout API** receives payment requests and publishes events.\n- **Event bus**: payment events flow through Kafka.\n- **Payment gateway adapter**: talks to the acquiring partner.\n- **Settlement batch job**: runs nightly and pays out merchants.\n- **Reporting**: dashboards in Grafana.\n\nSee the onboarding guide for how to run the system locally.",
+    "url_or_path": "https://wiki.contoso-payments.example/payments/architecture-overview",
+    "tags": [
+      "architecture"
+    ],
+    "metadata": {
+      "space": "payments",
+      "contributors": [
+        "priya"
+      ]
+    }
+  }
+]

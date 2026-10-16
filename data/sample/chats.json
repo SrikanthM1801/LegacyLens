@@ -1,0 +1,296 @@
+[
+  {
+    "id": "art_chat_chat_101",
+    "type": "chat",
+    "source_id": "CHAT-101",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-11-03T09:25:00Z",
+    "title": "Gateway timeouts (INC-142)",
+    "body": "Channel: #payments-oncall\n[2025-11-03 09:25] Arjun: @ravi PG authorisations are timing out, 30% of checkouts. INC-142.\n[2025-11-03 09:31] Ravi: Checking. Pulling up the pool stats on the gateway adapter.\n[2025-11-03 09:40] Ravi: Yep, same thing as the last spike. The partner drops idle connections after 60s but our pool keeps them, so we send requests on dead sockets and they time out. First thing I always check: `gwctl pool-status` and look at the stale count. If stale > 20%, that's it.\n[2025-11-03 09:42] Arjun: What's the fix?\n[2025-11-03 09:48] Ravi: Drain then restart the adapter: `gwctl drain` then `kubectl rollout restart deploy/pg-adapter`. Do NOT restart between 02:00 and 03:00 UTC, the settlement batch reads through it.\n[2025-11-03 10:05] Ravi: Auth success back to 99%. Verify on the 'PG Auth' Grafana dashboard, success rate should be above 98% within 5 minutes. If not, call Daniel at the acquirer NOC, +91 98450 12345.\n[2025-11-03 10:08] Arjun: Thanks. Will you document this?",
+    "url_or_path": "teams://payments-oncall/CHAT-101",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "message_count": 7,
+      "channel": "#payments-oncall"
+    }
+  },
+  {
+    "id": "art_chat_chat_201",
+    "type": "chat",
+    "source_id": "CHAT-201",
+    "author": "priya",
+    "participants": [
+      "arjun"
+    ],
+    "timestamp": "2025-12-12T06:12:00Z",
+    "title": "Settlement batch stuck (INC-150)",
+    "body": "Channel: #settlement-ops\n[2025-12-12 06:12] Priya: Is the settlement batch stuck? Merchants are asking about payouts.\n[2025-12-12 06:20] Arjun: Yes, it's waiting on the bank file at the reconciliation step. The bank SFTP drop is late again.\n[2025-12-12 06:25] Arjun: Workaround: rerun with `--skip-recon` if the bank file is late. Payouts go out on our ledger. Then once the file lands I run `settlement_batch.py --recon-only --date <yesterday>` to reconcile.\n[2025-12-12 06:30] Priya: Is that safe?\n[2025-12-12 06:33] Arjun: Yes as long as you pass the same `--idempotency-key` as the original run, otherwise it double pays. That's the gotcha.",
+    "url_or_path": "teams://settlement-ops/CHAT-201",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 5,
+      "channel": "#settlement-ops"
+    }
+  },
+  {
+    "id": "art_chat_chat_102",
+    "type": "chat",
+    "source_id": "CHAT-102",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-01-19T14:07:00Z",
+    "title": "Gateway 504 on refunds (INC-155)",
+    "body": "Channel: #payments-oncall\n[2026-01-19 14:07] Arjun: @ravi refunds through the payment gateway are returning 504s. INC-155.\n[2026-01-19 14:15] Ravi: Same as INC-142. Stale connections again. Checking `gwctl pool-status`.\n[2026-01-19 14:30] Ravi: Drained and restarted pg-adapter. This time I also lowered `POOL_MAX_IDLE_SECONDS` from 300 to 45 in the configmap so we recycle before the partner's 60s cut-off. Should help but it isn't a guarantee.\n[2026-01-19 14:36] Arjun: Refunds working again.\n[2026-01-19 14:40] Ravi: Good. If it recurs the order is: pool-status, drain, restart, check Grafana.",
+    "url_or_path": "teams://payments-oncall/CHAT-102",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "message_count": 5,
+      "channel": "#payments-oncall"
+    }
+  },
+  {
+    "id": "art_chat_chat_901",
+    "type": "chat",
+    "source_id": "CHAT-901",
+    "author": "priya",
+    "participants": [
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2026-02-03T09:30:00Z",
+    "title": "Standup",
+    "body": "Channel: #payments-dev\n[2026-02-03 09:30] Priya: Standup in 5. Anyone blocked?\n[2026-02-03 09:31] Meera: Not blocked, working on the dashboard spike.\n[2026-02-03 09:32] Ravi: Heads down on reviews today.",
+    "url_or_path": "teams://payments-dev/CHAT-901",
+    "tags": [
+      "noise"
+    ],
+    "metadata": {
+      "message_count": 3,
+      "channel": "#payments-dev"
+    }
+  },
+  {
+    "id": "art_chat_chat_202",
+    "type": "chat",
+    "source_id": "CHAT-202",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-03-02T08:02:00Z",
+    "title": "Settlement totals mismatch (INC-163)",
+    "body": "Channel: #settlement-ops\n[2026-03-02 08:02] Arjun: Finance says settlement totals are off for two merchants. Looking.\n[2026-03-02 09:10] Arjun: Cause: refunds posted after the 23:59 cut-off are counted in the next batch but the bank statement counted them same day. I fixed it by moving them with the SQL in `scripts/shift_refunds.sql` and re-running with `--recon-only`.\n[2026-03-02 09:20] Ravi: Not my area, but do you want me to review the SQL?\n[2026-03-02 09:22] Arjun: No, it's fine, I've done it before. Always take a DB snapshot first.\n[2026-03-02 13:05] Arjun: Finance confirmed totals match.",
+    "url_or_path": "teams://settlement-ops/CHAT-202",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 5,
+      "channel": "#settlement-ops"
+    }
+  },
+  {
+    "id": "art_chat_chat_303",
+    "type": "chat",
+    "source_id": "CHAT-303",
+    "author": "meera",
+    "participants": [
+      "arjun",
+      "priya"
+    ],
+    "timestamp": "2026-03-17T09:30:00Z",
+    "title": "First week setup",
+    "body": "Channel: #payments-dev\n[2026-03-17 09:30] Meera: Docker compose fails on my machine, any ideas?\n[2026-03-17 09:40] Arjun: Check the Troubleshooting section of the Onboarding Guide.\n[2026-03-17 10:05] Meera: That fixed it, the guide is great.\n[2026-03-17 10:10] Priya: Please add anything missing to the guide as you go.",
+    "url_or_path": "teams://payments-dev/CHAT-303",
+    "tags": [
+      "onboarding"
+    ],
+    "metadata": {
+      "message_count": 4,
+      "channel": "#payments-dev"
+    }
+  },
+  {
+    "id": "art_chat_chat_103",
+    "type": "chat",
+    "source_id": "CHAT-103",
+    "author": "arjun",
+    "participants": [
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2026-04-08T07:48:00Z",
+    "title": "Gateway timeouts after cert rotation (INC-171)",
+    "body": "Channel: #payments-oncall\n[2026-04-08 07:48] Arjun: @ravi gateway timeouts again, started right after the partner cert rotation. INC-171\n[2026-04-08 07:55] Ravi: Pool-status looks fine this time, so it's not the stale connection problem. It's the cert.\n[2026-04-08 08:20] Ravi: The adapter pins the partner's TLS cert. When they rotate, the pin is wrong and the handshake fails silently, which looks like a timeout. Fix: update `PARTNER_CERT_PIN` in the pg-adapter configmap with the new fingerprint (partner emails it, or `openssl s_client -connect` to get it), then restart.\n[2026-04-08 08:25] Meera: Is this written down anywhere? I couldn't find it on the wiki.\n[2026-04-08 08:27] Ravi: Not yet, it's in my head. Sorry. I'll add it to the list.\n[2026-04-08 11:45] Arjun: Auth rate is back above 98%. Thanks Ravi.",
+    "url_or_path": "teams://payments-oncall/CHAT-103",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "message_count": 6,
+      "channel": "#payments-oncall"
+    }
+  },
+  {
+    "id": "art_chat_chat_301",
+    "type": "chat",
+    "source_id": "CHAT-301",
+    "author": "meera",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2026-05-08T10:00:00Z",
+    "title": "How do I cut a release?",
+    "body": "Channel: #payments-dev\n[2026-05-08 10:00] Meera: How do I do the staging deploy for the release?\n[2026-05-08 10:04] Priya: Follow the Release Process page on the wiki, step 3 onwards.\n[2026-05-08 10:30] Meera: Done, the checklist was clear. Thanks.",
+    "url_or_path": "teams://payments-dev/CHAT-301",
+    "tags": [
+      "release"
+    ],
+    "metadata": {
+      "message_count": 3,
+      "channel": "#payments-dev"
+    }
+  },
+  {
+    "id": "art_chat_chat_204",
+    "type": "chat",
+    "source_id": "CHAT-204",
+    "author": "meera",
+    "participants": [
+      "arjun"
+    ],
+    "timestamp": "2026-05-11T15:00:00Z",
+    "title": "What do I do if the bank file is late?",
+    "body": "Channel: #settlement-ops\n[2026-05-11 15:00] Meera: Arjun, if I'm covering and the settlement bank file is late, what do I do?\n[2026-05-11 15:06] Arjun: Rerun with `--skip-recon`, then `--recon-only` once the file arrives. Always the same idempotency key. The job runs at 02:00 UTC, the bank file normally lands by 01:30 but not always.\n[2026-05-11 15:08] Meera: Where's the doc for that?\n[2026-05-11 15:10] Arjun: Honestly just me. I keep meaning to write it down.",
+    "url_or_path": "teams://settlement-ops/CHAT-204",
+    "tags": [
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 4,
+      "channel": "#settlement-ops"
+    }
+  },
+  {
+    "id": "art_chat_chat_302",
+    "type": "chat",
+    "source_id": "CHAT-302",
+    "author": "meera",
+    "participants": [
+      "arjun",
+      "priya"
+    ],
+    "timestamp": "2026-06-04T11:00:00Z",
+    "title": "API token 401s",
+    "body": "Channel: #payments-dev\n[2026-06-04 11:00] Meera: Batch client gets 401 after 15 minutes. Is that expected?\n[2026-06-04 11:05] Arjun: Yes, see the API Authentication guide on the wiki, section on token expiry.\n[2026-06-04 11:07] Priya: The expiry is configurable, the guide shows how.",
+    "url_or_path": "teams://payments-dev/CHAT-302",
+    "tags": [
+      "api-auth"
+    ],
+    "metadata": {
+      "message_count": 3,
+      "channel": "#payments-dev"
+    }
+  },
+  {
+    "id": "art_chat_chat_203",
+    "type": "chat",
+    "source_id": "CHAT-203",
+    "author": "arjun",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-06-15T05:44:00Z",
+    "title": "Settlement parse failure after bank format change (INC-180)",
+    "body": "Channel: #settlement-ops\n[2026-06-15 05:44] Arjun: Settlement failed overnight. The bank added a column to the file.\n[2026-06-15 06:30] Arjun: Fix: update the column mapping in `config/bank_schema.yaml` (add the new column name, keep the old order), then rerun. The parser is strict so any new column breaks it.\n[2026-06-15 07:00] Meera: Should that be validated before the batch runs?\n[2026-06-15 07:05] Arjun: Yes, good idea, but nobody has had time. For now it's just me watching it.\n[2026-06-15 08:40] Arjun: Batch completed.",
+    "url_or_path": "teams://settlement-ops/CHAT-203",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 5,
+      "channel": "#settlement-ops"
+    }
+  },
+  {
+    "id": "art_chat_chat_104",
+    "type": "chat",
+    "source_id": "CHAT-104",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-07-22T18:33:00Z",
+    "title": "Gateway outage during flash sale (INC-188)",
+    "body": "Channel: #payments-oncall\n[2026-07-22 18:33] Arjun: @ravi PG down during the flash sale, INC-188. Traffic is 4x.\n[2026-07-22 18:40] Ravi: Pool-status shows exhaustion, not stale connections. 50 connections max isn't enough at this volume.\n[2026-07-22 18:52] Ravi: Temporary fix: raise `POOL_MAX_SIZE` from 50 to 200 and restart. Remember to put it back to 50 afterwards, 200 hits the partner's rate limit if kept for long.\n[2026-07-22 19:10] Arjun: Recovering. Success rate 97%... 99%.\n[2026-07-22 20:30] Ravi: Third time I've fixed this by hand. Three different triggers (stale sockets, cert pin, pool size) but the same first step: always `gwctl pool-status` to tell which. We should automate it.\n[2026-07-22 20:35] Arjun: Agreed, and someone else should know this too.",
+    "url_or_path": "teams://payments-oncall/CHAT-104",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "message_count": 6,
+      "channel": "#payments-oncall"
+    }
+  },
+  {
+    "id": "art_chat_chat_902",
+    "type": "chat",
+    "source_id": "CHAT-902",
+    "author": "arjun",
+    "participants": [
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2026-08-14T12:00:00Z",
+    "title": "Lunch",
+    "body": "Channel: #payments-dev\n[2026-08-14 12:00] Arjun: Lunch at the new place?\n[2026-08-14 12:01] Meera: Yes please!\n[2026-08-14 12:03] Ravi: Give me 10 minutes.",
+    "url_or_path": "teams://payments-dev/CHAT-902",
+    "tags": [
+      "noise"
+    ],
+    "metadata": {
+      "message_count": 3,
+      "channel": "#payments-dev"
+    }
+  },
+  {
+    "id": "art_chat_chat_401",
+    "type": "chat",
+    "source_id": "CHAT-401",
+    "author": "arjun",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2026-09-02T12:00:00Z",
+    "title": "Ravi's last day",
+    "body": "Channel: #payments-dev\n[2026-09-02 12:00] Arjun: Ravi's last day is 15 Nov. Does anyone else know how to fix the gateway?\n[2026-09-02 12:05] Priya: Honestly no. That's the problem we need to solve.\n[2026-09-02 12:08] Arjun: Same for settlement tbh. We should both write things down.",
+    "url_or_path": "teams://payments-dev/CHAT-401",
+    "tags": [
+      "handover",
+      "payment-gateway",
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 3,
+      "channel": "#payments-dev"
+    }
+  }
+]

@@ -12,7 +12,6 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 #: Repo root — backend/app/config.py -> backend/app -> backend -> <root>
@@ -62,20 +61,13 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = 150
 
     # --- API --------------------------------------------------------------
-    cors_origins: list[str] = Field(
-        default_factory=lambda: [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ]
-    )
+    #: Comma-separated (CORS_ORIGINS=http://a,http://b). Kept as a plain string
+    #: because pydantic-settings JSON-decodes list fields from env before validators run.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def _split_csv(cls, v: object) -> object:
-        """Allow CORS_ORIGINS=http://a,http://b in .env (not just JSON)."""
-        if isinstance(v, str) and not v.strip().startswith("["):
-            return [part.strip() for part in v.split(",") if part.strip()]
-        return v
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def azure_openai_configured(self) -> bool:

@@ -17,9 +17,14 @@ An AI agent that finds knowledge held by one person (low bus factor, no docs), i
 ## Always research first
 **Search the web before touching anything external** — Azure OpenAI, AI Search, Graph, Copilot Studio, M365 Agents SDK, any pip/npm package, API versions, model names, errors you can't explain. Use WebSearch (extended for niche/recent topics) and read official pages (learn.microsoft.com, library GitHub/PyPI/npm) with WebFetch. Pinned versions in `requirements.txt` may be stale; flag conflicts instead of silently upgrading. Never put secrets or real data in queries. Details: `.claude/skills/research-first`.
 
+## Working one task at a time
+The whole build is split into small tasks in `TASKS.md` (T00–T38, with status checkboxes). Use `/next-task` (or `/next-task T07`) to complete one end to end, and `/task-status` for progress. Finish and verify one task before starting the next; keep `TASKS.md` statuses accurate. This build order supersedes the coarse list below.
+
 ## Project skills (`.claude/skills/`)
 | Skill | Use when |
 | --- | --- |
+| `next-task` | Starting or continuing the next item in `TASKS.md` |
+| `task-status` | Asking for progress / what's left |
 | `research-first` | Any task involving an external library/service/API or unfamiliar error |
 | `coding-standards` | Writing or reviewing any code |
 | `optimize` | A feature works end to end and is slow, rate-limited, or costly |

@@ -1,0 +1,203 @@
+[
+  {
+    "id": "art_email_mail_001",
+    "type": "email",
+    "source_id": "MAIL-001",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-03-12T09:15:00Z",
+    "title": "Message broker for payment events: Kafka vs RabbitMQ",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2025-03-12 09:15 UTC\nSubject: Message broker for payment events: Kafka vs RabbitMQ\n\nTeam, I have been comparing Kafka and RabbitMQ for the payment event bus (authorised, captured, settled). My recommendation is Kafka. Reasons: (1) event replay. Settlement reconciliation needs to re-process a day of events after a bank file fix, and Kafka's retained log gives us that for free, RabbitMQ deletes messages once acked. (2) Ordering per merchant. Keying by merchant id gives strict ordering per merchant on a partition, which RabbitMQ only gives with a single consumer. (3) Throughput headroom. Projected volume is about 10x in 18 months and Kafka scales by partitions.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2025-03-12 11:40 UTC\nSubject: Message broker for payment events: Kafka vs RabbitMQ\n\nMakes sense for the consumers I own. One concern: RabbitMQ is simpler to run. Who operates the Kafka cluster?\n\n---\n\nFrom: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2025-03-12 13:05 UTC\nSubject: Message broker for payment events: Kafka vs RabbitMQ\n\nFair. The platform team already runs a shared Kafka cluster, so we get managed ops and don't carry the pager for brokers. That was the deciding factor for me. We lose the simple per-message routing of RabbitMQ and accept more consumer-side code.\n\n---\n\nFrom: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2025-03-13 08:50 UTC\nSubject: Message broker for payment events: Kafka vs RabbitMQ\n\nI also looked at Pulsar. Rejected: smaller ecosystem here and no platform-team support. Decision criteria were replay, per-merchant ordering, and who runs it. Kafka wins on all three.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2025-03-13 09:30 UTC\nSubject: Message broker for payment events: Kafka vs RabbitMQ\n\nAgreed. I'll start on the consumer side once the topics are provisioned.",
+    "url_or_path": "mail://MAIL-001",
+    "tags": [
+      "kafka",
+      "architecture",
+      "decision"
+    ],
+    "metadata": {
+      "message_count": 5
+    }
+  },
+  {
+    "id": "art_email_mail_002",
+    "type": "email",
+    "source_id": "MAIL-002",
+    "author": "arjun",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2025-03-18T10:00:00Z",
+    "title": "Re: Kafka operational risk",
+    "body": "From: Arjun Mehta <arjun.mehta@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2025-03-18 10:00 UTC\nSubject: Re: Kafka operational risk\n\nPriya, support concern on Kafka. If the consumer lags or dies, settlement input is late and I get the call. How do we recover?\n\n---\n\nFrom: Priya Nair <priya.nair@contoso-payments.com>\nTo: arjun.mehta@contoso-payments.com\nDate: 2025-03-18 12:20 UTC\nSubject: Re: Kafka operational risk\n\nGood question, and part of why replay mattered. If the consumer falls behind, we reset the consumer group offset to the last good checkpoint and replay. No data loss. We'll add a lag alert at 5 minutes. I accepted the extra operational complexity in exchange for exactly this recoverability.\n\n---\n\nFrom: Arjun Mehta <arjun.mehta@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2025-03-18 12:45 UTC\nSubject: Re: Kafka operational risk\n\nOK, that helps. Please make sure the lag alert goes to the support channel.",
+    "url_or_path": "mail://MAIL-002",
+    "tags": [
+      "kafka",
+      "settlement",
+      "decision"
+    ],
+    "metadata": {
+      "message_count": 3
+    }
+  },
+  {
+    "id": "art_email_mail_003",
+    "type": "email",
+    "source_id": "MAIL-003",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-03-21T16:00:00Z",
+    "title": "Decision: Kafka selected as payment event bus",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2025-03-21 16:00 UTC\nSubject: Decision: Kafka selected as payment event bus\n\nFYI to all stakeholders: we are going ahead with Kafka for the payment event bus. Implementation tracked in PAY-118 and follow-ups. No further action needed from you.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2025-03-21 16:10 UTC\nSubject: Decision: Kafka selected as payment event bus\n\nAck.",
+    "url_or_path": "mail://MAIL-003",
+    "tags": [
+      "kafka",
+      "decision"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_004",
+    "type": "email",
+    "source_id": "MAIL-004",
+    "author": "priya",
+    "participants": [
+      "arjun",
+      "ravi"
+    ],
+    "timestamp": "2025-09-08T17:00:00Z",
+    "title": "Architecture review notes: Sept 2025",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: arjun.mehta@contoso-payments.com, ravi.kumar@contoso-payments.com\nDate: 2025-09-08 17:00 UTC\nSubject: Architecture review notes: Sept 2025\n\nNotes from today's review. Kafka topics are now at 12 partitions per payment topic. The payment gateway adapter is stable but remains a single-owner component (Ravi). The settlement batch consumes from Kafka nightly at 02:00 UTC. Action: review ownership of gateway and settlement next quarter.\n\n---\n\nFrom: Arjun Mehta <arjun.mehta@contoso-payments.com>\nTo: priya.nair@contoso-payments.com, ravi.kumar@contoso-payments.com\nDate: 2025-09-08 17:20 UTC\nSubject: Architecture review notes: Sept 2025\n\nNoted. Settlement ownership is effectively me today.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: arjun.mehta@contoso-payments.com, priya.nair@contoso-payments.com\nDate: 2025-09-09 09:00 UTC\nSubject: Architecture review notes: Sept 2025\n\nSame for the gateway adapter, effectively me.",
+    "url_or_path": "mail://MAIL-004",
+    "tags": [
+      "architecture",
+      "kafka",
+      "payment-gateway",
+      "settlement"
+    ],
+    "metadata": {
+      "message_count": 3
+    }
+  },
+  {
+    "id": "art_email_mail_008",
+    "type": "email",
+    "source_id": "MAIL-008",
+    "author": "priya",
+    "participants": [
+      "arjun"
+    ],
+    "timestamp": "2026-01-10T09:00:00Z",
+    "title": "Release schedule for 2026",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: arjun.mehta@contoso-payments.com\nDate: 2026-01-10 09:00 UTC\nSubject: Release schedule for 2026\n\nReleases go out every second Tuesday following the release process on the wiki (Release Process page). Hotfixes follow the hotfix flow on the same page.\n\n---\n\nFrom: Arjun Mehta <arjun.mehta@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-01-10 09:20 UTC\nSubject: Release schedule for 2026\n\nThanks, support will align the maintenance notices with that.",
+    "url_or_path": "mail://MAIL-008",
+    "tags": [
+      "release"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_009",
+    "type": "email",
+    "source_id": "MAIL-009",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-02-05T09:00:00Z",
+    "title": "Quarterly API signing key rotation",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2026-02-05 09:00 UTC\nSubject: Quarterly API signing key rotation\n\nReminder: rotate the API signing keys this week. Steps are in the API Authentication guide on the wiki.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-02-05 09:40 UTC\nSubject: Quarterly API signing key rotation\n\nWill do, tracked as PAY-301.",
+    "url_or_path": "mail://MAIL-009",
+    "tags": [
+      "api-auth"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_010",
+    "type": "email",
+    "source_id": "MAIL-010",
+    "author": "priya",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-03-16T08:30:00Z",
+    "title": "Welcome Meera: onboarding plan",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: meera.iyer@contoso-payments.com\nDate: 2026-03-16 08:30 UTC\nSubject: Welcome Meera: onboarding plan\n\nWelcome to the team, Meera. Start with the Onboarding Guide on the wiki: environment setup, access checklist, and a first-week plan. Ask any of us if something is unclear.\n\n---\n\nFrom: Meera Iyer <meera.iyer@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-03-16 08:50 UTC\nSubject: Welcome Meera: onboarding plan\n\nThank you! Starting on the guide now.",
+    "url_or_path": "mail://MAIL-010",
+    "tags": [
+      "onboarding"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_005",
+    "type": "email",
+    "source_id": "MAIL-005",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-07-03T10:00:00Z",
+    "title": "Q3 planning: backlog items",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2026-07-03 10:00 UTC\nSubject: Q3 planning: backlog items\n\nQ3 backlog candidates: automate payment gateway pool recovery (Ravi to propose design), settlement runbook (Arjun), latency dashboard (Meera). We may not get to all of them.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-07-03 10:30 UTC\nSubject: Q3 planning: backlog items\n\nI'll write a short proposal for the gateway automation when I have time.",
+    "url_or_path": "mail://MAIL-005",
+    "tags": [
+      "planning"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_006",
+    "type": "email",
+    "source_id": "MAIL-006",
+    "author": "meera",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2026-08-25T11:00:00Z",
+    "title": "Why did we choose Kafka?",
+    "body": "From: Meera Iyer <meera.iyer@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-08-25 11:00 UTC\nSubject: Why did we choose Kafka?\n\nHi Priya, I'm reading the event consumers. Is there a document explaining why we picked Kafka over RabbitMQ? I couldn't find a decision record.\n\n---\n\nFrom: Priya Nair <priya.nair@contoso-payments.com>\nTo: meera.iyer@contoso-payments.com\nDate: 2026-08-25 14:10 UTC\nSubject: Why did we choose Kafka?\n\nThere isn't a written record. It's buried in an email thread from March last year, I'll try to dig it out and write it up properly when I get a moment.",
+    "url_or_path": "mail://MAIL-006",
+    "tags": [
+      "kafka",
+      "decision"
+    ],
+    "metadata": {
+      "message_count": 2
+    }
+  },
+  {
+    "id": "art_email_mail_007",
+    "type": "email",
+    "source_id": "MAIL-007",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-09-10T09:00:00Z",
+    "title": "Handover planning for Ravi",
+    "body": "From: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2026-09-10 09:00 UTC\nSubject: Handover planning for Ravi\n\nRavi, thank you for the notice. Your last day is 15 November. Please start preparing a handover for the gateway adapter and anything else only you know. Even a rough doc helps.\n\n---\n\nFrom: Ravi Kumar <ravi.kumar@contoso-payments.com>\nTo: priya.nair@contoso-payments.com\nDate: 2026-09-10 09:45 UTC\nSubject: Handover planning for Ravi\n\nThanks Priya. Most of the gateway knowledge is in my head and in chat threads. I will try, but my time is tight with the Q3 deliverables.\n\n---\n\nFrom: Priya Nair <priya.nair@contoso-payments.com>\nTo: ravi.kumar@contoso-payments.com\nDate: 2026-09-10 10:15 UTC\nSubject: Handover planning for Ravi\n\nUnderstood. We'll look at ways to capture it with less effort on your side.",
+    "url_or_path": "mail://MAIL-007",
+    "tags": [
+      "handover",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "message_count": 3
+    }
+  }
+]

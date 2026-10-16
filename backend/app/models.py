@@ -69,7 +69,10 @@ class ArtifactType(str, Enum):
 
 
 #: Artifact types that count as documentation for `coverage_score`.
-DOC_ARTIFACT_TYPES: tuple[str, ...] = (ArtifactType.DOC.value,)
+DOC_ARTIFACT_TYPES: tuple[str, ...] = (
+    ArtifactType.DOC.value,
+    ArtifactType.INTERVIEW.value,  # approved interview answers count as documentation
+)
 
 
 class EntityType(str, Enum):
@@ -117,6 +120,8 @@ class Person(Base):
     email: Optional[str] = None
     teams_handle: Optional[str] = None
     aliases: list[str] = Field(default_factory=list)
+    is_departing: bool = False                     # drives the x1.5 risk boost
+    departure_date: Optional[datetime] = None
 
 
 class Artifact(Base):
@@ -247,6 +252,7 @@ class RiskItem(Base):
     coverage_score: float = 0.0
     activity_score: float = 0.0
     risk_score: float = 0.0
+    risk_level: Literal["high", "medium", "low"] = "low"  # high>=0.6, medium>=0.3
     missing_doc_types: list[DocType] = Field(default_factory=list)
     evidence: list[Citation] = Field(default_factory=list)
     computed_at: datetime = Field(default_factory=utcnow)

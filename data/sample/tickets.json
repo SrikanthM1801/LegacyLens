@@ -1,0 +1,474 @@
+[
+  {
+    "id": "art_ticket_pay_118",
+    "type": "ticket",
+    "source_id": "PAY-118",
+    "author": "priya",
+    "participants": [],
+    "timestamp": "2025-03-10T11:00:00Z",
+    "title": "PAY-118 Select message broker for the payment event bus",
+    "body": "PAY-118: Select message broker for the payment event bus\nSeverity: Task\n\nDescription:\nWe need a message broker for payment events (authorised, captured, settled).\n\nResolution:\nDecision made: Kafka. Rationale discussed over email.\n\nComments:\n- [2025-03-21] priya: Decision taken, moving ahead with Kafka.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-118",
+    "tags": [
+      "decision",
+      "kafka",
+      "architecture"
+    ],
+    "metadata": {
+      "key": "PAY-118",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "priya",
+      "resolved_at": "2025-03-11T11:00:00+00:00",
+      "systems": [
+        "kafka-event-bus"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_204",
+    "type": "ticket",
+    "source_id": "PAY-204",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-06-02T10:00:00Z",
+    "title": "PAY-204 Implement Kafka consumer for settlement events",
+    "body": "PAY-204: Implement Kafka consumer for settlement events\nSeverity: Task\n\nDescription:\nConsume payment.captured events from Kafka and feed the settlement batch input.\n\nResolution:\nImplemented and deployed.\n\nComments:\n- [2025-06-20] ravi: Consumer merged. Topic config in the infra repo.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-204",
+    "tags": [
+      "kafka",
+      "settlement"
+    ],
+    "metadata": {
+      "key": "PAY-204",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2025-06-05T10:00:00+00:00",
+      "systems": [
+        "kafka-event-bus",
+        "settlement-batch-job"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_142",
+    "type": "ticket",
+    "source_id": "INC-142",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2025-11-03T09:20:00Z",
+    "title": "INC-142 Payment gateway timeouts on card authorisations",
+    "body": "INC-142: Payment gateway timeouts on card authorisations\nSeverity: P1\n\nDescription:\nCard authorisations through the payment gateway are timing out for ~30% of checkouts. Merchants report spinner then failure. Started after the 08:50 UTC traffic spike.\n\nResolution:\nFixed by Ravi. Details in the team chat thread.\n\nComments:\n- [2025-11-03] arjun: Escalating to Ravi, nobody else has touched the gateway integration.\n- [2025-11-03] ravi: On it. Looks like the usual one. Will write up later.\n- [2025-11-03] ravi: Back to normal. See chat for what I did.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-142",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "key": "INC-142",
+      "severity": "P1",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2025-11-03T12:20:00+00:00",
+      "systems": [
+        "payment-gateway"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_150",
+    "type": "ticket",
+    "source_id": "INC-150",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2025-12-12T06:10:00Z",
+    "title": "INC-150 Settlement batch job stuck at reconciliation",
+    "body": "INC-150: Settlement batch job stuck at reconciliation\nSeverity: P2\n\nDescription:\nNightly settlement batch did not complete. Reconciliation step waiting on the bank file.\n\nResolution:\nArjun re-ran the job manually.\n\nComments:\n- [2025-12-12] arjun: Bank file arrived late again. Re-ran it.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-150",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "key": "INC-150",
+      "severity": "P2",
+      "status": "resolved",
+      "resolved_by": "arjun",
+      "resolved_at": "2025-12-12T08:10:00+00:00",
+      "systems": [
+        "settlement-batch-job"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_290",
+    "type": "ticket",
+    "source_id": "PAY-290",
+    "author": "priya",
+    "participants": [
+      "arjun"
+    ],
+    "timestamp": "2026-01-14T10:00:00Z",
+    "title": "PAY-290 Fix release checklist step ordering",
+    "body": "PAY-290: Fix release checklist step ordering\nSeverity: Task\n\nDescription:\nSmoke test step was listed after the traffic switch in the release checklist.\n\nResolution:\nChecklist corrected.\n\nComments:\n- [2026-01-15] arjun: Updated the wiki release process page.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-290",
+    "tags": [
+      "release"
+    ],
+    "metadata": {
+      "key": "PAY-290",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "arjun",
+      "resolved_at": "2026-01-14T13:00:00+00:00",
+      "systems": [
+        "release-process"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_155",
+    "type": "ticket",
+    "source_id": "INC-155",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-01-19T14:05:00Z",
+    "title": "INC-155 Gateway returning 504 for refunds",
+    "body": "INC-155: Gateway returning 504 for refunds\nSeverity: P2\n\nDescription:\nRefund calls to the payment gateway intermittently return 504. Customer support has 40 open complaints.\n\nResolution:\nResolved by Ravi, same cause as INC-142. See chat.\n\nComments:\n- [2026-01-19] arjun: Same symptoms as INC-142?\n- [2026-01-19] ravi: Yes. Applied the same fix, plus a stricter check on connection age.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-155",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "key": "INC-155",
+      "severity": "P2",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2026-01-19T16:05:00+00:00",
+      "systems": [
+        "payment-gateway"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_301",
+    "type": "ticket",
+    "source_id": "PAY-301",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-02-09T10:00:00Z",
+    "title": "PAY-301 Rotate API signing keys",
+    "body": "PAY-301: Rotate API signing keys\nSeverity: Task\n\nDescription:\nQuarterly rotation of API signing keys per the API authentication guide.\n\nResolution:\nDone following the wiki procedure.\n\nComments:\n- [2026-02-10] ravi: Followed the API auth wiki page, no surprises.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-301",
+    "tags": [
+      "api-auth"
+    ],
+    "metadata": {
+      "key": "PAY-301",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2026-02-09T16:00:00+00:00",
+      "systems": [
+        "api-authentication"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_163",
+    "type": "ticket",
+    "source_id": "INC-163",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-03-02T08:00:00Z",
+    "title": "INC-163 Settlement totals mismatch for 2 merchants",
+    "body": "INC-163: Settlement totals mismatch for 2 merchants\nSeverity: P2\n\nDescription:\nSettlement totals differ from the bank statement for two merchants. Finance flagged it.\n\nResolution:\nArjun corrected the batch and re-ran settlement.\n\nComments:\n- [2026-03-02] arjun: Fixed the input and re-ran. Finance confirmed the totals match.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-163",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "key": "INC-163",
+      "severity": "P2",
+      "status": "resolved",
+      "resolved_by": "arjun",
+      "resolved_at": "2026-03-02T13:00:00+00:00",
+      "systems": [
+        "settlement-batch-job"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_171",
+    "type": "ticket",
+    "source_id": "INC-171",
+    "author": "arjun",
+    "participants": [
+      "meera",
+      "ravi"
+    ],
+    "timestamp": "2026-04-08T07:45:00Z",
+    "title": "INC-171 Gateway timeouts after certificate rotation",
+    "body": "INC-171: Gateway timeouts after certificate rotation\nSeverity: P1\n\nDescription:\nTimeouts to the payment gateway began right after the partner rotated their TLS certificate. Authorisation success rate dropped to 61%.\n\nResolution:\nRavi fixed it. Notes are in the chat thread.\n\nComments:\n- [2026-04-08] ravi: Different trigger, same failure mode. Had to flush the pool and re-pin the cert.\n- [2026-04-08] meera: Is there a doc I can read about this? Couldn't find one on the wiki.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-171",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "key": "INC-171",
+      "severity": "P1",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2026-04-08T11:45:00+00:00",
+      "systems": [
+        "payment-gateway"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_312",
+    "type": "ticket",
+    "source_id": "PAY-312",
+    "author": "arjun",
+    "participants": [
+      "priya"
+    ],
+    "timestamp": "2026-04-20T10:00:00Z",
+    "title": "PAY-312 Add OAuth scope for refunds endpoint",
+    "body": "PAY-312: Add OAuth scope for refunds endpoint\nSeverity: Task\n\nDescription:\nRefund endpoint needs its own OAuth scope.\n\nResolution:\nScope added, documented in the API authentication guide.\n\nComments:\n- [2026-04-22] priya: Updated the wiki page with the new scope.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-312",
+    "tags": [
+      "api-auth"
+    ],
+    "metadata": {
+      "key": "PAY-312",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "priya",
+      "resolved_at": "2026-04-20T18:00:00+00:00",
+      "systems": [
+        "api-authentication"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_318",
+    "type": "ticket",
+    "source_id": "PAY-318",
+    "author": "priya",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-05-06T10:00:00Z",
+    "title": "PAY-318 Automate staging deploy in release pipeline",
+    "body": "PAY-318: Automate staging deploy in release pipeline\nSeverity: Task\n\nDescription:\nAutomate the staging deploy as described in the release process doc.\n\nResolution:\nPipeline updated.\n\nComments:\n- [2026-05-08] ravi: Done. Release process page updated.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-318",
+    "tags": [
+      "release"
+    ],
+    "metadata": {
+      "key": "PAY-318",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2026-05-07T02:00:00+00:00",
+      "systems": [
+        "release-process"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_327",
+    "type": "ticket",
+    "source_id": "PAY-327",
+    "author": "arjun",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-06-03T10:00:00Z",
+    "title": "PAY-327 Token expiry too short for batch clients",
+    "body": "PAY-327: Token expiry too short for batch clients\nSeverity: Bug\n\nDescription:\nBatch clients get 401 after 15 min. Increase expiry per the documented limits.\n\nResolution:\nExpiry made configurable, documented.\n\nComments:\n- [2026-06-04] meera: Used the API auth guide to find the config, easy fix.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-327",
+    "tags": [
+      "api-auth"
+    ],
+    "metadata": {
+      "key": "PAY-327",
+      "severity": "Bug",
+      "status": "resolved",
+      "resolved_by": "meera",
+      "resolved_at": "2026-06-03T15:00:00+00:00",
+      "systems": [
+        "api-authentication"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_180",
+    "type": "ticket",
+    "source_id": "INC-180",
+    "author": "arjun",
+    "participants": [],
+    "timestamp": "2026-06-15T05:40:00Z",
+    "title": "INC-180 Settlement batch failed after bank file format change",
+    "body": "INC-180: Settlement batch failed after bank file format change\nSeverity: P2\n\nDescription:\nOvernight settlement failed to parse the bank file after the bank changed a column.\n\nResolution:\nArjun resolved this.\n\nComments:\n- [2026-06-15] arjun: Done, job completed. Raising a ticket to document this one day.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-180",
+    "tags": [
+      "incident",
+      "settlement"
+    ],
+    "metadata": {
+      "key": "INC-180",
+      "severity": "P2",
+      "status": "resolved",
+      "resolved_by": "arjun",
+      "resolved_at": "2026-06-15T08:40:00+00:00",
+      "systems": [
+        "settlement-batch-job"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_335",
+    "type": "ticket",
+    "source_id": "PAY-335",
+    "author": "arjun",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-07-01T10:00:00Z",
+    "title": "PAY-335 Hotfix release for rounding bug",
+    "body": "PAY-335: Hotfix release for rounding bug\nSeverity: Bug\n\nDescription:\nRounding bug on fee display. Needs hotfix release.\n\nResolution:\nReleased using the documented hotfix flow.\n\nComments:\n- [2026-07-01] meera: First release I ran, the wiki made it painless.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-335",
+    "tags": [
+      "release"
+    ],
+    "metadata": {
+      "key": "PAY-335",
+      "severity": "Bug",
+      "status": "resolved",
+      "resolved_by": "meera",
+      "resolved_at": "2026-07-01T14:00:00+00:00",
+      "systems": [
+        "release-process"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_inc_188",
+    "type": "ticket",
+    "source_id": "INC-188",
+    "author": "arjun",
+    "participants": [
+      "ravi"
+    ],
+    "timestamp": "2026-07-22T18:30:00Z",
+    "title": "INC-188 Payment gateway outage during flash sale",
+    "body": "INC-188: Payment gateway outage during flash sale\nSeverity: P1\n\nDescription:\nGateway authorisations failing during the flash sale. Peak traffic 4x normal. Revenue impact.\n\nResolution:\nRavi restored service. Fix described in chat.\n\nComments:\n- [2026-07-22] arjun: Paging Ravi again. This is the fourth gateway incident this year.\n- [2026-07-22] ravi: Recovered. Third time I've done this by hand, we should automate it.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/INC-188",
+    "tags": [
+      "incident",
+      "payment-gateway"
+    ],
+    "metadata": {
+      "key": "INC-188",
+      "severity": "P1",
+      "status": "resolved",
+      "resolved_by": "ravi",
+      "resolved_at": "2026-07-22T20:30:00+00:00",
+      "systems": [
+        "payment-gateway"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_340",
+    "type": "ticket",
+    "source_id": "PAY-340",
+    "author": "priya",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-08-03T10:00:00Z",
+    "title": "PAY-340 Update onboarding guide for new dev environment",
+    "body": "PAY-340: Update onboarding guide for new dev environment\nSeverity: Task\n\nDescription:\nOnboarding guide references the old docker-compose setup.\n\nResolution:\nGuide updated.\n\nComments:\n- [2026-08-04] meera: Fixed the steps I hit while setting up.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-340",
+    "tags": [
+      "onboarding"
+    ],
+    "metadata": {
+      "key": "PAY-340",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "meera",
+      "resolved_at": "2026-08-03T16:00:00+00:00",
+      "systems": [
+        "onboarding"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_341",
+    "type": "ticket",
+    "source_id": "PAY-341",
+    "author": "priya",
+    "participants": [
+      "arjun"
+    ],
+    "timestamp": "2026-08-05T10:00:00Z",
+    "title": "PAY-341 Add access checklist for new joiners",
+    "body": "PAY-341: Add access checklist for new joiners\nSeverity: Task\n\nDescription:\nAdd a checklist of access requests to the onboarding guide.\n\nResolution:\nAdded to the guide.\n\nComments:\n- [2026-08-06] arjun: Checklist added to the wiki.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-341",
+    "tags": [
+      "onboarding"
+    ],
+    "metadata": {
+      "key": "PAY-341",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "arjun",
+      "resolved_at": "2026-08-05T14:00:00+00:00",
+      "systems": [
+        "onboarding"
+      ]
+    }
+  },
+  {
+    "id": "art_ticket_pay_350",
+    "type": "ticket",
+    "source_id": "PAY-350",
+    "author": "priya",
+    "participants": [
+      "meera"
+    ],
+    "timestamp": "2026-08-18T10:00:00Z",
+    "title": "PAY-350 Add latency dashboard for checkout API",
+    "body": "PAY-350: Add latency dashboard for checkout API\nSeverity: Task\n\nDescription:\nCreate a dashboard for p95 checkout latency.\n\nResolution:\nDashboard shipped.\n\nComments:\n- [2026-08-20] meera: Dashboard live.",
+    "url_or_path": "https://tracker.contoso-payments.example/browse/PAY-350",
+    "tags": [
+      "monitoring"
+    ],
+    "metadata": {
+      "key": "PAY-350",
+      "severity": "Task",
+      "status": "resolved",
+      "resolved_by": "meera",
+      "resolved_at": "2026-08-19T06:00:00+00:00",
+      "systems": [
+        "checkout-api"
+      ]
+    }
+  }
+]
