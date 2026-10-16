@@ -91,7 +91,9 @@ class RelationType(str, Enum):
     OWNS = "OWNS"                    # person -> system/process
     DOCUMENTED_BY = "DOCUMENTED_BY"  # entity -> artifact (doc/wiki)
     MENTIONS = "MENTIONS"            # artifact -> entity
-    PARTICIPATED_IN = "PARTICIPATED_IN"  # person -> incident/decision/process
+    PARTICIPATED_IN = "PARTICIPATED_IN"  # person -> incident/decision/process/system (ticket work)
+    COMMITTED_TO = "COMMITTED_TO"    # person -> system/process (code commits touching it)
+    DISCUSSED = "DISCUSSED"          # person -> system/process/decision (spoke about it in chat/email)
 
 
 class DocType(str, Enum):
@@ -340,6 +342,7 @@ class IngestResponse(Base):
     graph: GraphStats = Field(default_factory=GraphStats)
     duration_seconds: float = 0.0
     warnings: list[str] = Field(default_factory=list)
+    redactions: dict[str, int] = Field(default_factory=dict)  # PII redacted, by kind
 
 
 class StartInterviewRequest(Base):
@@ -394,6 +397,33 @@ class AskResponse(Base):
     confidence: float = 0.0                        # 0..1, heuristic in mock mode
     followup_questions: list[str] = Field(default_factory=list)
     model: str = "mock"
+
+
+class GraphResponse(Base):
+    """GET /graph: nodes are Entity dumps (kind='entity') or artifact stubs (kind='artifact')."""
+
+    nodes: list[dict[str, Any]] = Field(default_factory=list)
+    edges: list[Edge] = Field(default_factory=list)
+    stats: GraphStats = Field(default_factory=GraphStats)
+
+
+class PersonTopic(Base):
+    entity_id: str
+    name: str
+    type: EntityType
+    activity: float                                # weighted interactions with the topic
+    share: float                                   # 0..1, this person's share of the topic's activity
+
+
+class PersonSummary(Base):
+    """Knowledge concentration for one person. Describes topics, never performance."""
+
+    id: str
+    name: str
+    role: str = ""
+    is_departing: bool = False
+    topics: list[PersonTopic] = Field(default_factory=list)
+    concentrated_topics: list[str] = Field(default_factory=list)  # topic names where share >= 0.7
 
 
 class RiskListResponse(Base):

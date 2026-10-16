@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     graph_path: Path = REPO_ROOT / "data" / "graph.json"
     state_dir: Path = REPO_ROOT / "data" / ".state"
 
+    #: Comma-separated org email domains kept as-is; all other addresses are redacted.
+    org_email_domains: str = "contoso-payments.com"
+
     # --- ingestion tuning -------------------------------------------------
     chunk_size_chars: int = 900
     chunk_overlap_chars: int = 150
@@ -68,6 +71,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def org_domains(self) -> frozenset[str]:
+        return frozenset(d.strip().lower() for d in self.org_email_domains.split(",") if d.strip())
 
     @property
     def azure_openai_configured(self) -> bool:

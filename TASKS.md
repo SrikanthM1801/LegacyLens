@@ -21,12 +21,12 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 
 ## Phase 2 — Ingestion & graph
 - [x] **T07 Loaders + normalizer** — `ingestion/loaders.py`: read `data/sample/*.json` → `list[Artifact]`, de-dupe on `source_id`.
-- [ ] **T08 PII redactor** — `ingestion/redactor.py`: phone numbers, external emails, card numbers → placeholders; pure function + tests.
-- [ ] **T09 Chunker** — `ingestion/chunker.py`: `Artifact` → `Chunk`s (900/150 chars, sentence-aware), carries title/author/type/timestamp.
-- [ ] **T10 GraphStore** — `graph/store.py` interface + `graph/networkx_store.py`: add/get nodes & edges, neighbors, stats, save/load `graph.json`, weights accumulate with evidence ids.
-- [ ] **T11 Entity/relation extractor** — `ingestion/extractor.py`: LLM structured extraction (prompt in `agents/prompts.py`) with a **rule-based mock** (ticket ids, known system aliases, authorship, commit paths) that detects the planted topics. Alias resolution ("PG"/"gateway" → one System). *Deps:* T07, T10.
-- [ ] **T12 Pipeline + `POST /ingest`** — `ingestion/pipeline.py` (load → redact → chunk → embed → extract → upsert), `api/ingest.py`, `scripts/ingest.py`, `/health` shows real counts. Cache by content hash. *Deps:* T07–T11.
-- [ ] **T13 `GET /graph` + `GET /people`** — graph JSON for visualization; people with knowledge-concentration summary (topics, not rankings).
+- [x] **T08 PII redactor** — `ingestion/redactor.py`: phone numbers, external emails, card numbers → placeholders; pure function + tests.
+- [x] **T09 Chunker** — `ingestion/chunker.py`: `Artifact` → `Chunk`s (900/150 chars, sentence-aware), carries title/author/type/timestamp.
+- [x] **T10 GraphStore** — `graph/store.py` interface + `graph/networkx_store.py`: add/get nodes & edges, neighbors, stats, save/load `graph.json`, weights accumulate with evidence ids.
+- [x] **T11 Entity/relation extractor** — `ingestion/extractor.py`: LLM structured extraction (prompt in `agents/prompts.py`) with a **rule-based mock** (ticket ids, known system aliases, authorship, commit paths) that detects the planted topics. Alias resolution ("PG"/"gateway" → one System). *Deps:* T07, T10.
+- [x] **T12 Pipeline + `POST /ingest`** — `ingestion/pipeline.py` (load → redact → chunk → embed → extract → upsert), `api/ingest.py`, `scripts/ingest.py`, `/health` shows real counts. Cache by content hash. *Deps:* T07–T11.
+- [x] **T13 `GET /graph` + `GET /people`** — graph JSON for visualization; people with knowledge-concentration summary (topics, not rankings).
 
 ## Phase 3 — Risk analysis
 - [ ] **T14 Activity + bus factor** — `agents/gap_analyzer.py`: weights RESOLVED 5 / DECIDED 4 / COMMITTED_TO 3 / authored doc 2 / mention 1, recency boost; bus factor (≥15% share), single-person flag (≥70%). Pure functions + tests.
