@@ -95,7 +95,7 @@ class AzureLLM:
         )
 
     def _with_retry(self, fn, *, attempts: int = 5):
-        from openai import APIConnectionError, APITimeoutError, RateLimitError
+        from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
         for i in range(attempts):
             try:
@@ -103,7 +103,7 @@ class AzureLLM:
             except RateLimitError as e:
                 retry_after = getattr(e.response, "headers", {}).get("retry-after")
                 delay = float(retry_after) if retry_after else 2**i
-            except (APIConnectionError, APITimeoutError):
+            except (APIConnectionError, APITimeoutError, InternalServerError):  # transient: network, 5xx
                 delay = 2**i
             if i == attempts - 1:
                 raise

@@ -46,7 +46,7 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [ ] **T24 Decision log** `[S]` — `POST /artifacts/decision-log`.
 
 ## Phase 6 — Copilot
-- [ ] **T25 `POST /ask`** — `agents/copilot.py`: hybrid retrieval + graph expansion, answer only from context, citations on every claim, "not enough info → suggest interview", person-centric queries.
+- [x] **T25 `POST /ask`** — `agents/copilot.py`: hybrid retrieval + graph expansion, answer only from context, citations on every claim, "not enough info → suggest interview", person-centric queries.
 
 ## Phase 7 — Frontend (React + Vite + TS)
 - [ ] **T26 Scaffold + typed API client** — Vite app, one `api.ts`, types mirroring `models.py`, layout, loading/error components. Use `/ui-ux-pro-max:ui-ux-pro-max` for design.

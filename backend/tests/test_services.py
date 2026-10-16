@@ -47,3 +47,24 @@ def test_reset_clears_index():
     s.upsert([_chunk("1", "hello world")])
     s.reset()
     assert s.count() == 0
+
+
+def test_azure_llm_retries_transient_server_errors(monkeypatch):
+    import httpx
+    import openai
+
+    from app.services import llm as llm_mod
+
+    monkeypatch.setattr(llm_mod.time, "sleep", lambda _s: None)
+    s = get_settings().model_copy(update={"azure_openai_endpoint": "https://x.openai.azure.com", "azure_openai_api_key": "k"})
+    azure = llm_mod.AzureLLM(s)
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            req = httpx.Request("POST", "https://x")
+            raise openai.InternalServerError("busy", response=httpx.Response(503, request=req), body=None)
+        return "ok"
+
+    assert azure._with_retry(flaky) == "ok" and calls["n"] == 3
