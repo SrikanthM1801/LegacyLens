@@ -37,12 +37,12 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 ## Phase 4 — Interviews
 - [x] **T18 Question generator** — `agents/interviewer.py`: 3–5 evidence-quoting questions (triggers, first checks, criteria, workarounds, gotchas, escalation); mock produces deterministic grounded questions.
 - [x] **T19 Session store + start/get** — `POST /interviews/{risk_id}/start`, `GET /interviews/{session_id}`; interviewee = top owner, prefer departing.
-- [ ] **T20 Answer endpoint + re-ingest** — `POST /interviews/{id}/answer`: store answer, create `Artifact(type=interview)`, chunk + index, optional vague-answer follow-up.
-- [ ] **T21 Approve + risk recompute** — `POST /interviews/{id}/approve`: add `DOCUMENTED_BY` edges, recompute risk. *Done when:* risk score visibly drops (red → green) in a test.
+- [x] **T20 Answer endpoint + re-ingest** — `POST /interviews/{id}/answer`: store answer, create `Artifact(type=interview)`, chunk + index, optional vague-answer follow-up.
+- [x] **T21 Approve + risk recompute** — `POST /interviews/{id}/approve`: add `DOCUMENTED_BY` edges, recompute risk. *Done when:* risk score visibly drops (red → green) in a test.
 
 ## Phase 5 — Generated documents
-- [ ] **T22 Runbook generator** — `agents/generator.py` + `POST /artifacts/runbook`: sections per Plan §11.4; every step cites an answer/artifact.
-- [ ] **T23 Handover pack** — `POST /artifacts/handover`: systems owned, open risks, decisions, contacts, runbook links, unresolved questions.
+- [x] **T22 Runbook generator** — `agents/generator.py` + `POST /artifacts/runbook`: sections per Plan §11.4; every step cites an answer/artifact.
+- [x] **T23 Handover pack** — `POST /artifacts/handover`: systems owned, open risks, decisions, contacts, runbook links, unresolved questions.
 - [ ] **T24 Decision log** `[S]` — `POST /artifacts/decision-log`.
 
 ## Phase 6 — Copilot

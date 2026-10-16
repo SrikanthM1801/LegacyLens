@@ -69,11 +69,17 @@ class NetworkXGraphStore:
         ]
         return sorted(out, key=lambda e: e.id)
 
-    def add_artifact_node(self, artifact_id: str, type: str, title: str, timestamp: Optional[datetime] = None) -> None:
+    def add_artifact_node(
+        self, artifact_id: str, type: str, title: str, timestamp: Optional[datetime] = None,
+        url_or_path: Optional[str] = None,
+    ) -> None:
         self._g.add_node(
             artifact_id,
             kind=_ARTIFACT,
-            data={"type": _enum_value(type), "title": title, "timestamp": timestamp.isoformat() if timestamp else None},
+            data={
+                "type": _enum_value(type), "title": title,
+                "timestamp": timestamp.isoformat() if timestamp else None, "url_or_path": url_or_path,
+            },
         )
 
     def has_node(self, node_id: str) -> bool:
@@ -174,7 +180,10 @@ class NetworkXGraphStore:
         data = json.loads(source.read_text(encoding="utf-8"))
         for n in data["nodes"]:
             if n.get("kind") == _ARTIFACT:
-                self._g.add_node(n["id"], kind=_ARTIFACT, data={k: n[k] for k in ("type", "title", "timestamp")})
+                self._g.add_node(
+                    n["id"], kind=_ARTIFACT,
+                    data={"type": n["type"], "title": n["title"], "timestamp": n["timestamp"], "url_or_path": n.get("url_or_path")},
+                )
             else:
                 self._g.add_node(n["id"], kind=_ENTITY, data={k: v for k, v in n.items() if k != "kind"})
         for e in data["edges"]:

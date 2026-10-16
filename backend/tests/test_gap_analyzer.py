@@ -96,3 +96,23 @@ def test_stats_are_well_formed_and_sorted(stats):
 def test_compute_is_deterministic(tmp_path):
     g = _graph(tmp_path)
     assert compute_topic_stats(g) == compute_topic_stats(g)
+
+
+def test_new_interview_artifacts_do_not_move_the_recency_reference(tmp_path):
+    g = _graph(tmp_path)
+    before = activity_by_topic(g, recency=True)["topic"]
+    g.add_artifact_node("interview_today", "interview", "Interview", NOW + timedelta(days=400))
+    assert activity_by_topic(g, recency=True)["topic"] == before
+
+
+def test_published_interviews_are_not_counted_as_authored_docs(tmp_path):
+    g = _graph(tmp_path)
+    before = activity_by_topic(g)["topic"]
+    g.add_artifact_node("int1", "interview", "Interview: Topic", NOW)
+    g.add_edge(Edge(source="old", target="int1", relation=R.AUTHORED))
+    g.add_edge(Edge(source="topic", target="int1", relation=R.DOCUMENTED_BY))
+    assert activity_by_topic(g)["topic"] == before
+    g.add_artifact_node("doc1", "doc", "Wiki page", NOW)
+    g.add_edge(Edge(source="old", target="doc1", relation=R.AUTHORED))
+    g.add_edge(Edge(source="topic", target="doc1", relation=R.DOCUMENTED_BY))
+    assert activity_by_topic(g)["topic"]["old"] == before["old"] + 2  # wiki docs still count

@@ -57,7 +57,10 @@ def activity_by_topic(
     out: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
     stamps = graph.artifact_timestamps() if recency else {}
-    ref = as_of or (max(stamps.values()) if stamps else None)
+    # "Now" is the newest *source* artifact. Published interviews are dated today, and must not
+    # shift the recency of everything else every time one is approved.
+    source_stamps = [t for i, t in stamps.items() if (graph.artifact_node(i) or {}).get("type") != "interview"]
+    ref = as_of or (max(source_stamps) if source_stamps else None)
 
     def boost(e: Edge) -> float:
         if not recency or ref is None:
@@ -83,9 +86,12 @@ def activity_by_topic(
             for t in affected.get(e.target, []):
                 out[t][e.source] += e.weight * WEIGHTS[R.RESOLVED.value] * boost(e)
 
+    # Only wiki-style docs count as work. Published interviews document a topic but must not
+    # inflate its activity, or interviewing about one topic would shift every other risk.
     authors = {e.target: e.source for e in graph.edges(relation=R.AUTHORED) if e.source in people}
     for e in graph.edges(relation=R.DOCUMENTED_BY):
-        if e.source in topics and e.target in authors:
+        node = graph.artifact_node(e.target) or {}
+        if e.source in topics and e.target in authors and node.get("type") == "doc":
             out[e.source][authors[e.target]] += WEIGHTS["AUTHORED_DOC"] * boost(e)
 
     return {t: dict(p) for t, p in out.items() if sum(p.values()) > 0}

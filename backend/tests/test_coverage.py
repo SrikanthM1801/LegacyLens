@@ -123,3 +123,14 @@ def test_overlapping_aliases_count_as_one_mention(tmp_path):
     one = compute_coverage(ent, g, FakeSearch([_hit("Arch", "The payment gateway adapter talks to the partner")]))
     two = compute_coverage(ent, g, FakeSearch([_hit("Arch", "The payment gateway adapter and the PG pool")]))
     assert one.search_score == PASSING_MENTION and two.search_score > PASSING_MENTION
+
+
+def test_incidental_mention_in_another_topics_interview_does_not_count(tmp_path):
+    g = empty_graph(tmp_path)
+    other = Citation(artifact_id="i1", title="Interview: Billing", snippet="we also touch the widget now and then",
+                     artifact_type="interview", score=1.0)
+    about = Citation(artifact_id="i2", title="Interview: Widget Service", snippet="x", artifact_type="interview", score=1.0)
+    doc = Citation(artifact_id="d1", title="Handbook", snippet="the widget is mentioned once", artifact_type="doc", score=1.0)
+    assert compute_coverage(ENT, g, FakeSearch([other])).score == 0
+    assert compute_coverage(ENT, g, FakeSearch([about])).search_score == TITLE_MENTION
+    assert compute_coverage(ENT, g, FakeSearch([doc])).search_score == PASSING_MENTION  # docs keep the old rule

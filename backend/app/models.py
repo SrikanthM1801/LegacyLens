@@ -274,6 +274,7 @@ class InterviewQuestion(Base):
     evidence: list[Citation] = Field(default_factory=list)
     target_entity_id: Optional[str] = None
     answered: bool = False
+    follow_up_of: Optional[str] = None             # id of the question this one digs deeper into
 
 
 class InterviewAnswer(Base):
@@ -364,7 +365,18 @@ class AnswerRequest(Base):
 class AnswerResponse(Base):
     session: InterviewSession
     stored_answer: InterviewAnswer
-    artifact_id: str                               # the new Artifact(type=interview)
+    artifact_id: str                               # id the Artifact(type=interview) will have once published
+    chunks_indexed: int = 0                        # 0 until the interviewee approves (see T21)
+    follow_up: Optional[InterviewQuestion] = None  # set when the answer was vague
+
+
+class ApproveResponse(Base):
+    """POST /interviews/{id}/approve: what was published and how the risk moved."""
+
+    session: InterviewSession
+    risk_before: Optional[RiskItem] = None
+    risk_after: Optional[RiskItem] = None
+    artifacts_published: int = 0
     chunks_indexed: int = 0
 
 

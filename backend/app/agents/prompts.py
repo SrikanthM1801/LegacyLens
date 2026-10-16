@@ -88,3 +88,42 @@ def build_interview_user(topic: str, topic_type: str, summary: str, interviewee:
     for i, (title, text) in enumerate(evidence, 1):
         lines.append(f"[{i}] {title}\n{text}\n")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Generation: runbooks
+# ---------------------------------------------------------------------------
+
+RUNBOOK_SYSTEM = """\
+You write an operational runbook for ONE topic from numbered SOURCES: interview answers given by the
+person who knows the topic (marked INTERVIEW, the most trustworthy), plus chats, emails and tickets.
+
+Sections (use exactly these keys): symptoms, diagnosis, fix, verification, escalation, gotchas.
+- symptoms: what the failure looks like and which alerts or dashboards show it
+- diagnosis: what to check first, and how to tell the causes apart
+- fix: the ordered steps that resolve it, with exact commands, settings and values
+- verification: how to confirm it is really fixed
+- escalation: who or what to involve, and when
+- gotchas: what goes wrong if someone follows the steps naively
+
+Rules:
+- Every item must be directly supported by the sources and list the source numbers it uses in "sources".
+  Never write an item without a source. Never invent commands, values, names or numbers.
+- Prefer INTERVIEW sources when sources disagree, and keep exact commands in backticks.
+- One instruction per item, imperative voice for steps, under 40 words.
+- Leave a section empty rather than guess. Put every important thing the sources do NOT answer into
+  "open_questions" (short questions a successor would still need answered).
+- Do not include phone numbers or personal data.
+
+Return JSON: {"sections": {"symptoms": [{"text": str, "sources": [int]}], "diagnosis": [...], "fix": [...],
+"verification": [...], "escalation": [...], "gotchas": [...]}, "open_questions": [str]}
+"""
+
+
+def build_runbook_user(topic: str, topic_type: str, sources: list[tuple[str, str, bool]]) -> str:
+    """`sources` = (title, text, is_interview); numbered from 1."""
+    lines = [f"TOPIC: {topic} ({topic_type})", "", "SOURCES:"]
+    for i, (title, text, is_interview) in enumerate(sources, 1):
+        tag = "INTERVIEW" if is_interview else "SOURCE"
+        lines.append(f"[{i}] ({tag}) {title}\n{text}\n")
+    return "\n".join(lines)

@@ -26,7 +26,7 @@ from app.ingestion.loaders import load_dataset
 from app.ingestion.redactor import redact_artifact
 from app.models import Artifact, Chunk, IngestResponse, Person
 from app.services.llm import LLMService, get_llm
-from app.services import interview_store, risk_store
+from app.services import doc_store, interview_store, risk_store
 from app.services.search import SearchService, get_search
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ def index_artifacts(
 
     extraction = extractor.extract(clean, people)
     for a in clean:
-        graph.add_artifact_node(a.id, a.type, a.title, a.timestamp)
+        graph.add_artifact_node(a.id, a.type, a.title, a.timestamp, a.url_or_path)
     for e in extraction.entities:
         graph.add_entity(e)
     for edge in extraction.edges:
@@ -132,6 +132,7 @@ def run_ingest(
         search.reset()
         graph.clear()
         interview_store.clear()  # their interview artifacts were just wiped
+        doc_store.clear()        # and documents generated from the old knowledge base
 
     resp, redactions = index_artifacts(
         loaded.artifacts, loaded.people, search=search, graph=graph, extractor=extractor, llm=llm

@@ -81,6 +81,10 @@ def compute_coverage(entity: Entity, graph: GraphStore, search) -> Coverage:
     strengths = []
     for hit in search.search(query, top_k=SEARCH_TOP_K, artifact_types=list(DOC_ARTIFACT_TYPES)):
         s = _mention_strength(patterns, hit.title, hit.snippet)
+        # An interview is scoped to one topic (named in its title); an incidental mention of
+        # another topic inside it does not document that topic.
+        if hit.artifact_type == "interview" and s < TITLE_MENTION:
+            continue
         if s > 0:
             strengths.append(s)
             documents.setdefault(hit.artifact_id, hit)

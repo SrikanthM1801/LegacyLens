@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from app.agents.gap_analyzer import collect_evidence
 from app.agents.prompts import INTERVIEW_SYSTEM, build_interview_user
 from app.graph.store import GraphStore
-from app.models import Citation, EntityType, InterviewQuestion, RiskItem
+from app.models import Artifact, ArtifactType, Citation, EntityType, InterviewQuestion, RiskItem
 from app.services.llm import LLMService
 
 log = logging.getLogger(__name__)
@@ -219,3 +219,58 @@ def generate_questions(
         log.warning("question generation via LLM failed (%s); using templates", type(exc).__name__)
         questions = []
     return questions or template_questions(risk, evidence, max_questions, speaker=interviewee_name)
+
+
+# ---------------------------------------------------------------------------
+# Answers: vagueness check, follow-ups, and the artifact an approved answer becomes
+# ---------------------------------------------------------------------------
+
+_VAGUE_PHRASES = (
+    "not sure", "don't remember", "dont remember", "i forget", "it depends", "no idea", "idk",
+    "same as before", "as usual", "figure it out", "n/a", "just restart", "it just works",
+)
+_SPECIFIC = re.compile(r"`|--|\d|[A-Z][A-Z_]{3,}|/|\.(?:py|yaml|yml|sql|sh)\b|\b[A-Z]{2,5}-\d+\b")
+MIN_SPECIFIC_WORDS = 12
+
+
+def is_vague(answer: str) -> bool:
+    """Heuristic: a short answer with no concrete command, name, value or id, or an evasive one."""
+    text = answer.strip()
+    words = text.split()
+    low = text.lower()
+    if any(p in low for p in _VAGUE_PHRASES) and len(words) < 40:
+        return True
+    return len(words) < MIN_SPECIFIC_WORDS and not _SPECIFIC.search(text)
+
+
+def follow_up_for(question: InterviewQuestion, answer_text: str) -> InterviewQuestion:
+    """One short, specific follow-up to a vague answer. Never chained."""
+    said = " ".join(answer_text.split())
+    said = said if len(said) <= 80 else said[:79].rstrip() + "…"
+    return InterviewQuestion(
+        text=(f"You said “{said}”. Could you be more specific: what exact command, setting, value or "
+              "name is involved, and what do you see when it has worked?"),
+        rationale="The first answer was brief; a concrete detail is what a successor can actually follow.",
+        evidence=question.evidence,
+        target_entity_id=question.target_entity_id,
+        follow_up_of=question.id,
+    )
+
+
+def build_answer_artifact(session, question: InterviewQuestion, answer, person_name: str) -> Artifact:
+    """The Artifact(type=interview) an approved answer becomes (deterministic id from the answer id)."""
+    from datetime import timezone
+
+    return Artifact(
+        id=f"art_interview_{answer.id}",
+        type=ArtifactType.INTERVIEW,
+        source_id=f"{session.id}/{answer.id}",
+        author=answer.answered_by,
+        timestamp=answer.answered_at.astimezone(timezone.utc),
+        title=f"Interview: {session.topic}",
+        body=f"Question: {question.text}\n\nAnswer ({person_name}): {answer.text}",
+        url_or_path=f"interview://{session.id}/{answer.id}",
+        tags=["interview", "tacit-knowledge"],
+        metadata={"session_id": session.id, "risk_id": session.risk_id, "question_id": question.id,
+                  "topic": session.topic, "interviewee": session.interviewee},
+    )

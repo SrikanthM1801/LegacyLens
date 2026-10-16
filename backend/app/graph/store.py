@@ -31,14 +31,17 @@ class GraphStore(Protocol):
 
     def entities(self, type: Optional[EntityType] = None) -> list[Entity]: ...
 
-    def add_artifact_node(self, artifact_id: str, type: str, title: str, timestamp: Optional[datetime] = None) -> None:
+    def add_artifact_node(
+        self, artifact_id: str, type: str, title: str, timestamp: Optional[datetime] = None,
+        url_or_path: Optional[str] = None,
+    ) -> None:
         """Register an artifact as a (lightweight) node so edges can point at it."""
         ...
 
     def has_node(self, node_id: str) -> bool: ...
 
     def artifact_node(self, artifact_id: str) -> Optional[dict[str, Any]]:
-        """{'type', 'title', 'timestamp'} of an artifact node, or None."""
+        """{'type', 'title', 'timestamp', 'url_or_path'} of an artifact node, or None."""
         ...
 
     def artifact_timestamps(self) -> dict[str, datetime]:

@@ -49,6 +49,11 @@ def _persist() -> None:
     os.replace(tmp, path)
 
 
+def lock() -> threading.RLock:
+    """Hold this around read-modify-write of a session so concurrent answers don't clobber each other."""
+    return _lock
+
+
 def save(session: InterviewSession) -> InterviewSession:
     """Insert or replace a session."""
     with _lock:
