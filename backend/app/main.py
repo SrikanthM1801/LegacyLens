@@ -9,11 +9,12 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import graph, ingest, people
+from app.api import graph, ingest, interviews, people, risks
 from app.config import VERSION, get_settings
 from app.graph import get_graph
 from app.ingestion.pipeline import ensure_index_ready
 from app.models import HealthResponse
+from app.services import risk_store
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
         resp = await run_in_threadpool(ensure_index_ready)
         if resp:
             log.info("startup ingest: %d artifacts, %d chunks", resp.artifacts_ingested, resp.chunks_indexed)
+        if get_graph().stats().node_count:
+            await run_in_threadpool(risk_store.get_risks)  # warm the cache so the first GET /risks is instant
     except Exception:  # a bad dataset must not stop the API from booting
         log.exception("startup ingest failed; call POST /ingest to retry")
     yield
@@ -51,8 +54,9 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(graph.router)
     app.include_router(people.router)
-    # Remaining routers register here as modules land: risks, interviews,
-    # artifacts, ask (see Plan.md section 12).
+    app.include_router(risks.router)
+    app.include_router(interviews.router)
+    # Remaining routers register here as modules land: artifacts, ask (see Plan.md section 12).
     return app
 
 

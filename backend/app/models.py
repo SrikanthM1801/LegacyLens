@@ -350,6 +350,7 @@ class StartInterviewRequest(Base):
 
     interviewee: Optional[str] = None              # override the suggested person
     max_questions: int = Field(default=4, ge=1, le=10)
+    force_new: bool = False                        # start a fresh session even if one is still open
 
 
 class AnswerRequest(Base):

@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.agents.gap_analyzer import SINGLE_PERSON_SHARE
 from app.graph import get_graph
 from app.graph.queries import activity_by_topic
 from app.models import EntityType, PersonSummary, PersonTopic
 
 router = APIRouter(tags=["people"])
-
-CONCENTRATION_THRESHOLD = 0.7  # one person holding >= 70% of a topic's activity (Plan.md 11.2)
 
 
 @router.get("/people", response_model=list[PersonSummary])
@@ -28,7 +27,7 @@ def people() -> list[PersonSummary]:
             share = mine / sum(by_person.values())
             t = names[tid]
             topics.append(PersonTopic(entity_id=tid, name=t.name, type=t.type, activity=round(mine, 2), share=round(share, 3)))
-            if share >= CONCENTRATION_THRESHOLD:
+            if share >= SINGLE_PERSON_SHARE:
                 concentrated.append(t.name)
         topics.sort(key=lambda x: (-x.share, x.name))
         out.append(PersonSummary(

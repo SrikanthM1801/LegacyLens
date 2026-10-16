@@ -29,14 +29,14 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [x] **T13 `GET /graph` + `GET /people`** — graph JSON for visualization; people with knowledge-concentration summary (topics, not rankings).
 
 ## Phase 3 — Risk analysis
-- [ ] **T14 Activity + bus factor** — `agents/gap_analyzer.py`: weights RESOLVED 5 / DECIDED 4 / COMMITTED_TO 3 / authored doc 2 / mention 1, recency boost; bus factor (≥15% share), single-person flag (≥70%). Pure functions + tests.
-- [ ] **T15 Coverage score** — search restricted to `DOC_ARTIFACT_TYPES` + `DOCUMENTED_BY` edges → 0..1.
-- [ ] **T16 Risk score + ranking + acceptance test** — formula, ×1.5 for departing owner, `risk_level`, evidence citations. *Done when:* the 3 planted risks rank top 3 and documented topics rank low.
-- [ ] **T17 `GET /risks`, `/risks/{id}`** — reads cached results; recompute on ingest/approval.
+- [x] **T14 Activity + bus factor** — `agents/gap_analyzer.py`: weights RESOLVED 5 / DECIDED 4 / COMMITTED_TO 3 / authored doc 2 / mention 1, recency boost; bus factor (≥15% share), single-person flag (≥70%). Pure functions + tests.
+- [x] **T15 Coverage score** — search restricted to `DOC_ARTIFACT_TYPES` + `DOCUMENTED_BY` edges → 0..1.
+- [x] **T16 Risk score + ranking + acceptance test** — formula, ×1.5 for departing owner, `risk_level`, evidence citations. *Done when:* the 3 planted risks rank top 3 and documented topics rank low.
+- [x] **T17 `GET /risks`, `/risks/{id}`** — reads cached results; recompute on ingest/approval.
 
 ## Phase 4 — Interviews
-- [ ] **T18 Question generator** — `agents/interviewer.py`: 3–5 evidence-quoting questions (triggers, first checks, criteria, workarounds, gotchas, escalation); mock produces deterministic grounded questions.
-- [ ] **T19 Session store + start/get** — `POST /interviews/{risk_id}/start`, `GET /interviews/{session_id}`; interviewee = top owner, prefer departing.
+- [x] **T18 Question generator** — `agents/interviewer.py`: 3–5 evidence-quoting questions (triggers, first checks, criteria, workarounds, gotchas, escalation); mock produces deterministic grounded questions.
+- [x] **T19 Session store + start/get** — `POST /interviews/{risk_id}/start`, `GET /interviews/{session_id}`; interviewee = top owner, prefer departing.
 - [ ] **T20 Answer endpoint + re-ingest** — `POST /interviews/{id}/answer`: store answer, create `Artifact(type=interview)`, chunk + index, optional vague-answer follow-up.
 - [ ] **T21 Approve + risk recompute** — `POST /interviews/{id}/approve`: add `DOCUMENTED_BY` edges, recompute risk. *Done when:* risk score visibly drops (red → green) in a test.
 

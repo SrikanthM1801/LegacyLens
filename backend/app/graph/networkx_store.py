@@ -79,6 +79,17 @@ class NetworkXGraphStore:
     def has_node(self, node_id: str) -> bool:
         return node_id in self._g
 
+    def artifact_node(self, artifact_id: str) -> Optional[dict[str, Any]]:
+        node = self._g.nodes.get(artifact_id)
+        return dict(node["data"]) if node and node["kind"] == _ARTIFACT else None
+
+    def artifact_timestamps(self) -> dict[str, datetime]:
+        return {
+            nid: datetime.fromisoformat(d["data"]["timestamp"])
+            for nid, d in self._g.nodes(data=True)
+            if d["kind"] == _ARTIFACT and d["data"].get("timestamp")
+        }
+
     # --- edges ---------------------------------------------------------------
     def add_edge(self, edge: Edge) -> Edge:
         for end in (edge.source, edge.target):

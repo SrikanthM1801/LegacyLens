@@ -37,6 +37,14 @@ class GraphStore(Protocol):
 
     def has_node(self, node_id: str) -> bool: ...
 
+    def artifact_node(self, artifact_id: str) -> Optional[dict[str, Any]]:
+        """{'type', 'title', 'timestamp'} of an artifact node, or None."""
+        ...
+
+    def artifact_timestamps(self) -> dict[str, datetime]:
+        """{artifact_id: timestamp} for every artifact node that has one."""
+        ...
+
     # --- edges ---------------------------------------------------------------
     def add_edge(self, edge: Edge) -> Edge:
         """Insert, or accumulate into an existing (source, target, relation) edge:

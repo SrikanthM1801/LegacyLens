@@ -62,12 +62,12 @@ class Extractor(Protocol):
 # ---------------------------------------------------------------------------
 
 
-def _alias_regex(alias: str) -> re.Pattern:
+def alias_regex(alias: str) -> re.Pattern:
     flags = 0 if (len(alias) <= 3 and alias.isupper()) else re.IGNORECASE  # "PG" must be capitalised
     return re.compile(rf"(?<![\w]){re.escape(alias)}(?![\w])", flags)
 
 
-_TOPIC_PATTERNS: dict[str, list[re.Pattern]] = {t.id: [_alias_regex(a) for a in t.aliases] for t in TOPICS}
+_TOPIC_PATTERNS: dict[str, list[re.Pattern]] = {t.id: [alias_regex(a) for a in t.aliases] for t in TOPICS}
 _TOPIC_BY_ID: dict[str, Topic] = {t.id: t for t in TOPICS}
 
 
@@ -180,7 +180,11 @@ def _person_entity(p: Person) -> Entity:
         id=p.id, type=EntityType.PERSON, name=p.name,
         aliases=list(dict.fromkeys([*p.aliases, p.name.split()[0]])),
         description=p.role,
-        attributes={"role": p.role, "is_departing": p.is_departing},
+        attributes={
+            "role": p.role,
+            "is_departing": p.is_departing,
+            "departure_date": p.departure_date.isoformat() if p.departure_date else None,
+        },
     )
 
 

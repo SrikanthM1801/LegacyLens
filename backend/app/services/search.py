@@ -38,20 +38,25 @@ class SearchService(Protocol):
         top_k: int = 6,
         artifact_types: Optional[list[str]] = None,
         author: Optional[str] = None,
-    ) -> list[Citation]: ...
+        snippet_chars: int = 300,
+    ) -> list[Citation]:
+        """Hybrid search. `snippet_chars` bounds each citation's snippet (callers that
+        need the full chunk, like the interviewer, ask for more)."""
+        ...
 
     def count(self) -> int: ...
 
 
 def _snippet(text: str, limit: int = 300) -> str:
-    text = " ".join(text.split())
+    """Whitespace-normalised excerpt that keeps line breaks (chats and emails are line-structured)."""
+    text = "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _to_citation(c: Chunk, score: float) -> Citation:
+def _to_citation(c: Chunk, score: float, snippet_chars: int = 300) -> Citation:
     return Citation(
         artifact_id=c.artifact_id,
-        snippet=_snippet(c.text),
+        snippet=_snippet(c.text, snippet_chars),
         url_or_path=c.url_or_path,
         title=c.title,
         artifact_type=c.artifact_type,
@@ -82,7 +87,7 @@ class InMemorySearch:
             self._chunks[c.id] = c
         return len(chunks)
 
-    def search(self, query, *, top_k=6, artifact_types=None, author=None):
+    def search(self, query, *, top_k=6, artifact_types=None, author=None, snippet_chars=300):
         types = _type_values(artifact_types)
         q_emb = self._llm.embed([query])[0]
         q_tokens = set(tokenize(query))
@@ -99,7 +104,7 @@ class InMemorySearch:
             if score > 0:
                 scored.append((score, c))
         scored.sort(key=lambda t: (-t[0], t[1].id))  # deterministic tie-break
-        return [_to_citation(c, s) for s, c in scored[:top_k]]
+        return [_to_citation(c, s, snippet_chars) for s, c in scored[:top_k]]
 
     def count(self) -> int:
         return len(self._chunks)
@@ -174,7 +179,7 @@ class AzureSearch:
             self._client.merge_or_upload_documents(docs[i : i + _UPLOAD_BATCH])
         return len(docs)
 
-    def search(self, query, *, top_k=6, artifact_types=None, author=None):
+    def search(self, query, *, top_k=6, artifact_types=None, author=None, snippet_chars=300):
         from azure.search.documents.models import VectorizedQuery
 
         clauses = []
@@ -197,7 +202,7 @@ class AzureSearch:
         out = []
         for r in results:
             chunk = Chunk.model_validate({k: v for k, v in r.items() if not k.startswith("@")})
-            out.append(_to_citation(chunk, r["@search.score"]))
+            out.append(_to_citation(chunk, r["@search.score"], snippet_chars))
         return out
 
     def count(self) -> int:

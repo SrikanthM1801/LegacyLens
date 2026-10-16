@@ -26,6 +26,7 @@ from app.ingestion.loaders import load_dataset
 from app.ingestion.redactor import redact_artifact
 from app.models import Artifact, Chunk, IngestResponse, Person
 from app.services.llm import LLMService, get_llm
+from app.services import interview_store, risk_store
 from app.services.search import SearchService, get_search
 
 log = logging.getLogger(__name__)
@@ -130,11 +131,13 @@ def run_ingest(
     if reset:
         search.reset()
         graph.clear()
+        interview_store.clear()  # their interview artifacts were just wiped
 
     resp, redactions = index_artifacts(
         loaded.artifacts, loaded.people, search=search, graph=graph, extractor=extractor, llm=llm
     )
     graph.save()
+    risk_store.invalidate()  # risks derive from the graph and index we just rebuilt
     resp.warnings = loaded.warnings + resp.warnings
     resp.redactions = dict(redactions)
     resp.duration_seconds = round(time.perf_counter() - t0, 3)
