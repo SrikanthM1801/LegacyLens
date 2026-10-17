@@ -64,6 +64,7 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [ ] **T31h Azure AI Language PII** — replace/extend regex redaction with conversation PII + secret scanner before indexing.
 - [ ] **T31i Answer scoping** — filter search by the asker's conversations (`metadata.scope_id` + member ids).
 - [x] **T31k Audit trail** — every consent/detection/capture/answer/publish event appended to Azure Blob (`audit` container, hourly JSONL); `GET /audit` with filters + `X-Admin-Key`.
+- [x] **T31m SharePoint knowledge** — project site libraries via Graph delta every 5 min (add / modify / delete), .docx .pptx .xlsx .pdf .txt .md .html → `doc` artifacts; file registry (`SyncState`), `capture.file` + `sync.sharepoint` audit; `GET /knowledge/sources`, `POST /knowledge/sync|rebuild`; `USE_SAMPLE_DATA=false` = live sources only.
 - [x] **T31m Dashboard API** — `GET /dashboard/hierarchy|summary|events|consents`: org → client account → project roll-ups over the audit blobs + consent register; admin key; anonymised event view; deterministic demo data (`DASHBOARD_DEMO=true`).
 - [x] **T31n Dashboard UI** — React (Vite + TS), 28 tests, deep links `?tab=` `?theme=`; still to do: host it over HTTPS and point the manifest's static tab at it (T31f). Contents: scope selector (org/account/project), KPI cards, activity charts, consent funnel + register, "what is stored where" panel, anonymised audit trail.
 - [ ] **T31l Admin page** — Teams tab / React page over `GET /audit`: timeline, filters by category/conversation/person, consent overview, chat read history.

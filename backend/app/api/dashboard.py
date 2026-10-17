@@ -20,7 +20,7 @@ from typing import Callable, Literal, Optional, TypeVar
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
-from app.api.audit import _require_admin
+from app.api.audit import require_admin
 from app.config import get_settings
 from app.models import (
     AuditEvent, ConsentRecord, ConsentRegisterRow, DashboardEventsResponse, DashboardSummary, HierarchyNode,
@@ -141,7 +141,7 @@ def _resolve(org: dashboard.Org, level: str, node_id: str) -> HierarchyNode:
 @router.get("/hierarchy", response_model=HierarchyNode)
 def hierarchy(x_admin_key: Optional[str] = Header(None)) -> HierarchyNode:
     """Org -> accounts -> projects, for the scope selector."""
-    _require_admin(x_admin_key)
+    require_admin(x_admin_key)
     return _load(data_source())[0].root
 
 
@@ -152,7 +152,7 @@ def summary(
     until: Optional[datetime] = Query(None, description="Default: now"),
     x_admin_key: Optional[str] = Header(None),
 ) -> DashboardSummary:
-    _require_admin(x_admin_key)
+    require_admin(x_admin_key)
     source = data_source()
     since, until = _window(since, until)
     org, records = _load(source)
@@ -168,7 +168,7 @@ def events(
     limit: int = Query(100, ge=1, le=dashboard.MAX_EVENTS), x_admin_key: Optional[str] = Header(None),
 ) -> DashboardEventsResponse:
     """The audit trail without people: roles instead of names, no authors or message ids."""
-    _require_admin(x_admin_key)
+    require_admin(x_admin_key)
     source = data_source()
     since, until = _window(since, until)
     org, _ = _load(source)
@@ -184,7 +184,7 @@ def events(
 @router.get("/consents", response_model=list[ConsentRegisterRow])
 def consents(level: Level = "org", id: str = dashboard.ORG_ID, x_admin_key: Optional[str] = Header(None)) -> list[ConsentRegisterRow]:
     """The consent register: every conversation LegacyLens knows about, its status and who decided."""
-    _require_admin(x_admin_key)
+    require_admin(x_admin_key)
     org, records = _load(data_source())
     _resolve(org, level, id)
     return dashboard.consent_register(org, level, id, records)

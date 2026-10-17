@@ -70,6 +70,11 @@ class GraphStore(Protocol):
 
     def clear(self) -> None: ...
 
+    def remove_artifact(self, artifact_id: str) -> bool:
+        """Forget one artifact (a deleted or changed file): its node, its edges, and its share
+        of other edges' evidence. Returns False if it was not in the graph."""
+        ...
+
     def to_json(self) -> dict[str, Any]:
         """{'nodes': [...], 'edges': [...]} for GET /graph, sorted for stable output."""
         ...

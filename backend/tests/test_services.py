@@ -68,3 +68,13 @@ def test_azure_llm_retries_transient_server_errors(monkeypatch):
         return "ok"
 
     assert azure._with_retry(flaky) == "ok" and calls["n"] == 3
+
+
+def test_embed_batches_respect_token_budget():
+    from app.services.llm import _EMBED_MAX_TOKENS, embed_batches
+
+    texts = ["x" * 900] * 100  # ~226 tokens each: 64 per request would be ~14K tokens
+    batches = embed_batches(texts)
+    assert sum(len(b) for b in batches) == 100
+    assert all(sum(len(t) // 4 + 1 for t in b) <= _EMBED_MAX_TOKENS for b in batches)
+    assert embed_batches([]) == [] and embed_batches(["y" * 40000]) == [["y" * 40000]]  # oversize input still sent alone

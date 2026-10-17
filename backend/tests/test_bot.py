@@ -37,7 +37,7 @@ def activity(text: str, mention: bool = True, **extra) -> dict:
 def bot_says(client, body: dict) -> list[str]:
     r = client.post("/api/messages", json=body)
     assert r.status_code == 200, r.text
-    return [a.get("text", "") for a in r.json()["activities"]]
+    return [a.get("text", "") for a in r.json()["activities"] if a.get("type") != "typing"]
 
 
 def test_help_and_empty_mention_show_welcome():
@@ -60,7 +60,7 @@ def test_pause_never_claims_to_store_anything():
 def test_question_reply_carries_sources(client):
     text = replies.reply_for("How did Ravi usually handle gateway timeouts?")
     assert "`gwctl pool-status`" in text
-    assert "**Sources**" in text and "1. **" in text
+    assert "Sources" not in text and "[1]" in text  # markers stay, the list is gone
 
 
 def test_api_messages_full_turn_strips_mention_and_answers(client):
@@ -70,7 +70,7 @@ def test_api_messages_full_turn_strips_mention_and_answers(client):
 
 def test_api_messages_question_turn(client):
     [reply] = bot_says(client, activity("What do I do if the bank file is late?"))
-    assert "--skip-recon" in reply and "**Sources**" in reply
+    assert "--skip-recon" in reply and "Sources" not in reply and "[1]" in reply
 
 
 def test_welcome_when_bot_is_added(client):
@@ -83,3 +83,48 @@ def test_welcome_when_bot_is_added(client):
 
 def test_probe_route(client):
     assert client.get("/api/messages").json() == {"status": "ok"}
+
+
+def test_citation_markers_link_to_their_source_file():
+    from app.models import AskResponse, Citation
+
+    resp = AskResponse(answer="- Uses AKS [1][2]\n- Fixed price [2]", citations=[
+        Citation(artifact_id="a", snippet="s", url_or_path="https://contoso.sharepoint.com/sites/p/Shared Documents/SAD.docx"),
+        Citation(artifact_id="b", snippet="s", url_or_path="data/sample/emails.json"),
+    ])
+    text = replies.format_answer(resp)
+    assert "[\\[1\\]](https://contoso.sharepoint.com/sites/p/Shared%20Documents/SAD.docx)" in text
+    assert text.count("[2]") == 2 and "Sources" not in text  # no link for a local path, marker kept
+
+
+def test_topics_and_runbook_commands(client):
+    topics = replies.reply_for("topics")
+    assert topics.startswith("**What I know about**") and "runbook" in topics
+    text, cited, kind = replies.respond("runbook payment gateway")
+    assert kind == "runbook" and cited and "## " not in text and "Sources" not in text
+    assert "[1]" in text  # claims keep their markers
+    assert replies.respond("runbook no-such-topic-xyz")[2] == "no_answer"
+    assert "Which topic?" in replies.reply_for("runbook")
+
+
+def test_status_command_reports_consent_and_knowledge(client):
+    mention = {"type": "mention", "mentioned": BOT, "text": "<at>LegacyLens</at>"}
+    [reply] = bot_says(client, activity("status", entities=[mention]))
+    assert reply.startswith("**LegacyLens status**") and ("haven't asked" in reply or "Waiting" in reply)
+    assert "SharePoint files" in reply and "topics" in reply
+
+
+def test_help_lists_every_manifest_command():
+    import json
+    from pathlib import Path
+
+    manifest = json.loads((Path(__file__).resolve().parents[2] / "bot/manifest/manifest.template.json").read_text())
+    commands = [c["title"] for c in manifest["bots"][0]["commandLists"][0]["commands"]]
+    assert {"ask", "risks", "topics", "runbook", "status", "pause", "resume", "help"} == set(commands)
+    assert all(f"{c}**" in replies.WELCOME or f"**{c}" in replies.WELCOME for c in commands)  # help mentions each
+
+
+def test_questions_show_typing_but_commands_do_not(client):
+    types = lambda text: [a["type"] for a in client.post("/api/messages", json=activity(text)).json()["activities"]]
+    assert types("What do I do if the bank file is late?")[0] == "typing"
+    assert "typing" not in types("risks")

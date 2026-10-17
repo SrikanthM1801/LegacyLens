@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_tokens: int = 1200
 
+    #: Load the synthetic dataset from data_dir at startup. Tests and offline demos keep this on;
+    #: a live deployment sets USE_SAMPLE_DATA=false so only real sources (SharePoint, Teams) are known.
+    use_sample_data: bool = True
+
     # --- paths ------------------------------------------------------------
     data_dir: Path = REPO_ROOT / "data" / "sample"
     graph_path: Path = REPO_ROOT / "data" / "graph.json"
@@ -98,6 +102,10 @@ class Settings(BaseSettings):
     #: Required as X-Admin-Key on /audit. Blank = /audit only answers with LIVE_M365=false.
     admin_api_key: str = ""
     azure_language_endpoint: str = ""
+    #: Project SharePoint site, e.g. https://contoso.sharepoint.com/sites/LegacyLensProject (or a site id).
+    sharepoint_site_url: str = ""
+    #: How often to pull new / changed / deleted files from the site.
+    sharepoint_sync_minutes: int = 5
 
     # --- Dashboard (org -> account -> project, over the audit trail) -----------
     org_name: str = "Organisation"

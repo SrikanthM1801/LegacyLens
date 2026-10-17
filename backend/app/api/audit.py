@@ -15,7 +15,7 @@ from app.services import audit
 router = APIRouter(tags=["audit"])
 
 
-def _require_admin(key: Optional[str]) -> None:
+def require_admin(key: Optional[str]) -> None:
     """X-Admin-Key must match ADMIN_API_KEY. Without a configured key the trail is only served
     offline (LIVE_M365=false), so real audit data is never exposed unauthenticated."""
     expected = get_settings().admin_api_key
@@ -37,7 +37,7 @@ def list_audit(
     limit: int = Query(200, ge=1, le=1000),
     x_admin_key: Optional[str] = Header(None),
 ) -> AuditListResponse:
-    _require_admin(x_admin_key)
+    require_admin(x_admin_key)
     if since and until and since > until:
         raise HTTPException(status_code=422, detail="'since' must be before 'until'")
     items, total, actions = audit.query(

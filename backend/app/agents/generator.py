@@ -79,7 +79,13 @@ def gather_sources(
                 if h.artifact_id in linked and h.artifact_id not in best:
                     best[h.artifact_id] = h
             sources += [Source(h, _answer_text(h.snippet), True) for _, h in sorted(best.items())]
-    for c in collect_evidence(entity, graph, search, limit=EVIDENCE_SOURCES, snippet_chars=SOURCE_CHARS):
+    evidence = collect_evidence(entity, graph, search, limit=EVIDENCE_SOURCES, snippet_chars=SOURCE_CHARS)
+    if not evidence and not sources:
+        # Nothing tacit (chats, tickets, emails) yet, e.g. a project known only from SharePoint
+        # documents: build from the documents rather than refuse.
+        evidence = collect_evidence(entity, graph, search, limit=EVIDENCE_SOURCES, snippet_chars=SOURCE_CHARS,
+                                    types=["doc"])
+    for c in evidence:
         sources.append(Source(c, c.snippet, False))
     return sources
 

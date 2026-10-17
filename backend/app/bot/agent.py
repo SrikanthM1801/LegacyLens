@@ -250,6 +250,40 @@ def _live_message(activity, scope_id: str, kind: str) -> LiveMessage:
     )
 
 
+def status_text(scope_id: str, kind: str) -> str:
+    """Consent for this conversation plus what the knowledge base holds (blocking)."""
+    from app.graph import get_graph
+    from app.services.source_registry import get_source_registry
+
+    store = get_consent_store()
+    lines = ["**LegacyLens status**"]
+    if kind != "personal":
+        rec = store.get(scope_id)
+        here = {
+            None: "❔ I haven't asked to learn from this conversation. Type **@LegacyLens resume** to ask.",
+            "pending": "⏳ Waiting for someone to click **Allow** on my request.",
+            "granted": f"✅ Learning from this conversation (allowed by {rec.granted_by if rec else ''}).",
+            "declined": "🚫 Not learning here: someone chose *Not now*.",
+            "paused": "⏸️ Paused here. Type **@LegacyLens resume** to ask again.",
+        }[rec.status if rec else None]
+        lines.append(here)
+    files = get_source_registry().list()
+    loaded = [f for f in files if f.status == "loaded"]
+    sites = sorted({f.site_name for f in loaded if f.site_name})
+    last = get_source_registry().last_sync()
+    convs = [r for r in store.list() if r.scope_type in ("chat", "channel") and r.status == "granted"]
+    stats = get_graph().stats().nodes_by_type
+    topics = sum(stats.get(t, 0) for t in ("system", "process", "decision"))
+    lines.append(f"- 📄 **{len(loaded)}** SharePoint files" + (f" from {', '.join(sites)}" if sites else "")
+                 + (f" (last checked {last:%d %b %H:%M} UTC)" if last else ""))
+    failed = len([f for f in files if f.status == "failed"])
+    if failed:
+        lines.append(f"- ⚠️ {failed} files could not be read")
+    lines.append(f"- 💬 **{len(convs)}** Teams conversations allowed")
+    lines.append(f"- 🧠 **{topics}** topics, **{stats.get('person', 0)}** people in the knowledge graph")
+    return "\n".join(lines)
+
+
 def _mentions_bot(activity) -> bool:
     bot_id = activity.recipient.id if activity.recipient else None
     return any(m.mentioned and m.mentioned.id == bot_id for m in TurnContext.get_mentions(activity))
@@ -306,9 +340,18 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
                 audit.record("consent.paused", source="teams", **_actor(activity), **_scope(rec))
             await context.send_activity(replies.PAUSED)
             return
+        if command == "status":
+            await context.send_activity(await asyncio.to_thread(status_text, scope_id, kind))
+            audit.record("ask.answered", source="teams", **_actor(activity), **_scope(activity), details={"reply": "status"})
+            return
         if kind != "personal" and command in ("resume", "consent", "allow"):
             await ask_consent(context, trigger="resume")
             return
+        if command.startswith("runbook ") or command not in replies.COMMANDS:
+            try:  # questions and runbooks call the LLM (several seconds): show "typing…"
+                await context.send_activity(Activity(type="typing"))
+            except Exception:
+                pass
         try:
             reply, cited, kind_of_reply = await asyncio.to_thread(replies.respond, text)
             audit.record("ask.answered", source="teams", **_actor(activity), **_scope(activity),

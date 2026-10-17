@@ -12,7 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import artifacts, ask, audit, bot, dashboard, graph, ingest, interviews, people, risks, webhooks
+from app.api import artifacts, ask, audit, bot, dashboard, graph, ingest, interviews, knowledge, people, risks, webhooks
 from app.bot.chat_watch import subscription_loop
 from app.config import VERSION, get_settings
 from app.graph import get_graph
@@ -44,22 +44,51 @@ _app_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Mock search lives in memory; rebuild it from the sample data on boot.
-    try:
-        resp = await run_in_threadpool(ensure_index_ready)
-        if resp:
-            log.info("startup ingest: %d artifacts, %d chunks", resp.artifacts_ingested, resp.chunks_indexed)
-        if get_graph().stats().node_count:
-            await run_in_threadpool(risk_store.get_risks)  # warm the cache so the first GET /risks is instant
-    except Exception:  # a bad dataset must not stop the API from booting
-        log.exception("startup ingest failed; call POST /ingest to retry")
+    s = get_settings()
+    if s.use_sample_data:
+        # Mock search lives in memory; rebuild it from the sample data on boot.
+        try:
+            resp = await run_in_threadpool(ensure_index_ready)
+            if resp:
+                log.info("startup ingest: %d artifacts, %d chunks", resp.artifacts_ingested, resp.chunks_indexed)
+            if get_graph().stats().node_count:
+                await run_in_threadpool(risk_store.get_risks)  # warm the cache so the first GET /risks is instant
+        except Exception:  # a bad dataset must not stop the API from booting
+            log.exception("startup ingest failed; call POST /ingest to retry")
     _seed_dashboard_demo()
-    watcher = _start_chat_watch()
-    audit_log.record("system.started", details={"version": VERSION, "live_m365": get_settings().live_m365})
+    tasks = [t for t in (_start_chat_watch(), _start_live_sources()) if t]
+    audit_log.record("system.started", details={
+        "version": VERSION, "live_m365": s.live_m365, "sample_data": s.use_sample_data,
+        "sharepoint": bool(s.sharepoint_site_url)})
     yield
-    if watcher:
-        watcher.cancel()
+    for t in tasks:
+        t.cancel()
     audit_log.get_audit_log().flush()
+
+
+def _start_live_sources() -> Optional[asyncio.Task]:
+    """Live knowledge only: rebuild from real sources when needed, then keep SharePoint in sync."""
+    s = get_settings()
+    if s.use_sample_data:
+        return None
+    if not s.live_m365:
+        log.warning("USE_SAMPLE_DATA=false but LIVE_M365=false: the knowledge base stays empty")
+        return None
+
+    async def run() -> None:
+        from app.ingestion.live import has_non_live_knowledge, index_is_ephemeral, rebuild_live_knowledge
+        from app.ingestion.sharepoint import sharepoint_loop
+
+        if index_is_ephemeral() or await run_in_threadpool(has_non_live_knowledge):
+            await asyncio.sleep(3)
+            reason = "in-memory index (USE_MOCKS=true) starts empty" if index_is_ephemeral() else "sample data removed"
+            await rebuild_live_knowledge(reason)
+        if s.sharepoint_site_url:
+            await sharepoint_loop()
+        else:
+            log.warning("SHAREPOINT_SITE_URL is not set; SharePoint files will not be loaded")
+
+    return asyncio.create_task(run())
 
 
 def _seed_dashboard_demo() -> None:
@@ -116,6 +145,7 @@ def create_app() -> FastAPI:
     if (settings.ui_dist_dir / "index.html").is_file():  # the dashboard, same origin as the API
         app.mount("/app", StaticFiles(directory=settings.ui_dist_dir, html=True), name="dashboard-ui")
     app.include_router(audit.router)
+    app.include_router(knowledge.router)
     app.include_router(dashboard.router)
     return app
 

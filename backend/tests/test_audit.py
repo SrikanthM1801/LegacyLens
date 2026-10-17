@@ -119,9 +119,10 @@ class FakeBlob:
     def __init__(self, store, name):
         self.store, self.name = store, name
 
-    def create_append_blob(self):
+    def create_append_blob(self, if_none_match=None):
+        """Like the real SDK: overwrites unless created with if_none_match='*'."""
         from azure.core.exceptions import ResourceExistsError
-        if self.name in self.store:
+        if self.name in self.store and if_none_match == "*":
             raise ResourceExistsError("exists")
         self.store[self.name] = b""
 
@@ -154,3 +155,7 @@ def test_blob_backend_appends_hourly_jsonl_and_reads_back():
     assert log._container.blobs["events/2026/10/17/15.jsonl"].count(b"\n") == 2
     got = log.query(t - timedelta(minutes=1), t + timedelta(hours=2))
     assert sorted(e.action for e in got) == ["capture.message", "consent.granted", "consent.paused"]
+    restarted = audit.BlobAuditLog.__new__(audit.BlobAuditLog)  # a new process, same hour
+    restarted._container, restarted._created = log._container, set()
+    restarted._append([AuditEvent(action="system.started", timestamp=t + timedelta(minutes=2))])
+    assert log._container.blobs["events/2026/10/17/15.jsonl"].count(b"\n") == 3  # appended, not wiped

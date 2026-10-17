@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.29/MicrosoftTeams.schema.json",
   "manifestVersion": "1.29",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "id": "c0e23221-8df7-42a5-ae6d-122127e3cb7b",
   "developer": {
     "name": "LegacyLens Team",
@@ -26,22 +26,62 @@
   "bots": [
     {
       "botId": "{{BOT_APP_ID}}",
-      "scopes": ["personal", "team", "groupChat"],
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
       "supportsFiles": false,
       "isNotificationOnly": false,
       "commandLists": [
         {
-          "scopes": ["personal", "team", "groupChat"],
+          "scopes": [
+            "personal",
+            "team",
+            "groupChat"
+          ],
           "commands": [
-            { "title": "ask", "description": "Ask a question about the project, answered with citations" },
-            { "title": "risks", "description": "Show the top knowledge risks for this project" },
-            { "title": "pause", "description": "Stop LegacyLens learning from this conversation" }
+            {
+              "title": "ask",
+              "description": "Ask a question about the project, answered with citations"
+            },
+            {
+              "title": "risks",
+              "description": "Show the top knowledge risks for this project"
+            },
+            {
+              "title": "topics",
+              "description": "List the systems, processes and decisions LegacyLens knows"
+            },
+            {
+              "title": "runbook",
+              "description": "Create a cited runbook for a topic, e.g. runbook AI Coach"
+            },
+            {
+              "title": "status",
+              "description": "Is LegacyLens learning here, and what is in its knowledge"
+            },
+            {
+              "title": "pause",
+              "description": "Stop LegacyLens learning from this conversation"
+            },
+            {
+              "title": "resume",
+              "description": "Ask again for permission to learn from this conversation"
+            },
+            {
+              "title": "help",
+              "description": "Show everything LegacyLens can do"
+            }
           ]
         }
       ]
     }
   ],
-  "permissions": ["identity", "messageTeamMembers"],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
   "validDomains": [],
   "webApplicationInfo": {
     "id": "{{BOT_APP_ID}}",
@@ -50,8 +90,14 @@
   "authorization": {
     "permissions": {
       "resourceSpecific": [
-        { "name": "ChannelMessage.Read.Group", "type": "Application" },
-        { "name": "ChatMessage.Read.Chat", "type": "Application" }
+        {
+          "name": "ChannelMessage.Read.Group",
+          "type": "Application"
+        },
+        {
+          "name": "ChatMessage.Read.Chat",
+          "type": "Application"
+        }
       ]
     }
   }

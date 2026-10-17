@@ -46,6 +46,10 @@ class SearchService(Protocol):
 
     def count(self) -> int: ...
 
+    def delete_artifact(self, artifact_id: str) -> int:
+        """Remove every chunk of one artifact (a changed or deleted file). Returns chunks removed."""
+        ...
+
 
 def _snippet(text: str, limit: int = 300) -> str:
     """Whitespace-normalised excerpt that keeps line breaks (chats and emails are line-structured)."""
@@ -108,6 +112,12 @@ class InMemorySearch:
 
     def count(self) -> int:
         return len(self._chunks)
+
+    def delete_artifact(self, artifact_id: str) -> int:
+        doomed = [cid for cid, c in self._chunks.items() if c.artifact_id == artifact_id]
+        for cid in doomed:
+            del self._chunks[cid]
+        return len(doomed)
 
 
 class AzureSearch:
@@ -207,6 +217,13 @@ class AzureSearch:
 
     def count(self) -> int:
         return self._client.get_document_count()
+
+    def delete_artifact(self, artifact_id: str) -> int:
+        safe = artifact_id.replace("'", "''")
+        ids = [r["id"] for r in self._client.search(search_text="*", filter=f"artifact_id eq '{safe}'", select=["id"], top=1000)]
+        if ids:
+            self._client.delete_documents(documents=[{"id": i} for i in ids])
+        return len(ids)
 
 
 @lru_cache

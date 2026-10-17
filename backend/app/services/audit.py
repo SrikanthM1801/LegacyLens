@@ -105,8 +105,8 @@ class BlobAuditLog:
             try:
                 blob = self._container.get_blob_client(name)
                 if name not in self._created:
-                    try:
-                        blob.create_append_blob()
+                    try:  # create only if missing: a plain create would wipe this hour's log
+                        blob.create_append_blob(if_none_match="*")
                     except ResourceExistsError:
                         pass
                     self._created.add(name)

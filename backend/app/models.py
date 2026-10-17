@@ -526,7 +526,58 @@ class AuditListResponse(Base):
 
 
 # ---------------------------------------------------------------------------
-# 11. Dashboard: org -> account -> project, aggregated from the audit trail
+# 11. Knowledge sources: files loaded from SharePoint (admin page inventory)
+# ---------------------------------------------------------------------------
+
+
+class SourceFile(Base):
+    """One SharePoint file and what LegacyLens did with it. Metadata only, never the contents."""
+
+    item_id: str                                   # Graph driveItem id
+    drive_id: str
+    site_id: str
+    site_name: str = ""
+    name: str
+    path: str = ""                                 # folder path inside the library
+    web_url: Optional[str] = None                  # opens the file in SharePoint (permission-checked)
+    size: int = 0
+    ctag: str = ""                                 # content version; unchanged ctag = skip
+    modified_at: Optional[datetime] = None
+    modified_by: Optional[str] = None
+    created_by: Optional[str] = None
+    artifact_id: Optional[str] = None
+    status: Literal["loaded", "failed", "unsupported", "deleted", "empty"] = "loaded"
+    chunks: int = 0
+    characters: int = 0
+    error: Optional[str] = None
+    loaded_at: datetime = Field(default_factory=utcnow)
+
+
+class SourceSyncReport(Base):
+    """Result of one SharePoint sync run."""
+
+    site_name: str = ""
+    full: bool = False
+    added: int = 0
+    modified: int = 0
+    deleted: int = 0
+    unchanged: int = 0
+    failed: int = 0
+    unsupported: int = 0
+    chunks_indexed: int = 0
+    duration_seconds: float = 0.0
+    errors: list[str] = Field(default_factory=list)
+
+
+class SourceListResponse(Base):
+    items: list[SourceFile] = Field(default_factory=list)
+    total: int = 0
+    by_status: dict[str, int] = Field(default_factory=dict)
+    last_sync: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# 12. Dashboard: org -> account -> project, aggregated from the audit trail
 # ---------------------------------------------------------------------------
 
 

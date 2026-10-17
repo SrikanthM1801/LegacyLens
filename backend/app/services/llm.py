@@ -27,7 +27,24 @@ log = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 _TOKEN_RE = re.compile(r"[a-z0-9_\-]+")
-_EMBED_BATCH = 64  # inputs per embeddings request; the 10K TPM limit is the real cap
+_EMBED_BATCH = 64  # inputs per embeddings request
+#: Token budget per embeddings request (~4 chars/token). Must stay well under the deployment's
+#: tokens-per-minute limit (10K TPM): a single request above it is rejected with 429 forever.
+_EMBED_MAX_TOKENS = 6000
+
+
+def embed_batches(texts: list[str]) -> list[list[str]]:
+    """Split texts into requests of at most _EMBED_BATCH inputs and _EMBED_MAX_TOKENS tokens."""
+    batches: list[list[str]] = [[]]
+    tokens = 0
+    for t in texts:
+        cost = len(t) // 4 + 1
+        if batches[-1] and (len(batches[-1]) >= _EMBED_BATCH or tokens + cost > _EMBED_MAX_TOKENS):
+            batches.append([])
+            tokens = 0
+        batches[-1].append(t)
+        tokens += cost
+    return [b for b in batches if b]
 
 
 class LLMService(Protocol):
@@ -94,7 +111,7 @@ class AzureLLM:
             max_retries=0,  # we handle 429 ourselves so we can honour Retry-After
         )
 
-    def _with_retry(self, fn, *, attempts: int = 5):
+    def _with_retry(self, fn, *, attempts: int = 5, max_delay: float = 65.0):
         from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
 
         for i in range(attempts):
@@ -102,7 +119,7 @@ class AzureLLM:
                 return fn()
             except RateLimitError as e:
                 retry_after = getattr(e.response, "headers", {}).get("retry-after")
-                delay = float(retry_after) if retry_after else 2**i
+                delay = min(float(retry_after) if retry_after else 2**i, max_delay)
             except (APIConnectionError, APITimeoutError, InternalServerError):  # transient: network, 5xx
                 delay = 2**i
             if i == attempts - 1:
@@ -140,12 +157,12 @@ class AzureLLM:
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         out: list[list[float]] = []
-        for i in range(0, len(texts), _EMBED_BATCH):
-            batch = texts[i : i + _EMBED_BATCH]
+        for batch in embed_batches(texts):
             resp = self._with_retry(
                 lambda b=batch: self._client.embeddings.create(
                     model=self._s.azure_openai_embedding_deployment, input=b
-                )
+                ),
+                attempts=10,  # a large first load waits out several TPM windows
             )
             out.extend(d.embedding for d in resp.data)
         return out

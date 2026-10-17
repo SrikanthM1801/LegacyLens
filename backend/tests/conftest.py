@@ -15,6 +15,9 @@ os.environ["DEFAULT_ACCOUNT_NAME"] = "Default account"
 os.environ["UI_DIST_DIR"] = os.path.join(os.path.dirname(__file__), "no-ui-build-in-tests")  # a local frontend/dist must not change test results
 # Never touch real Graph / Azure Tables from tests.
 os.environ["LIVE_M365"] = "false"
+os.environ["USE_SAMPLE_DATA"] = "true"
+for _k in ("ADMIN_API_KEY", "SHAREPOINT_SITE_URL"):
+    os.environ[_k] = ""
 _tmp = tempfile.mkdtemp(prefix="legacylens-test-")
 os.environ["GRAPH_PATH"] = os.path.join(_tmp, "graph.json")
 os.environ["STATE_DIR"] = os.path.join(_tmp, "state")

@@ -154,6 +154,28 @@ class NetworkXGraphStore:
     def clear(self) -> None:
         self._g.clear()
 
+    def remove_artifact(self, artifact_id: str) -> bool:
+        if artifact_id not in self._g:
+            return False
+        self._g.remove_node(artifact_id)  # drops edges touching the artifact itself
+        for u, v, k, d in list(self._g.edges(keys=True, data=True)):
+            ev = d["data"].get("evidence_artifact_ids") or []
+            if artifact_id not in ev:
+                continue
+            rest = [a for a in ev if a != artifact_id]
+            if not rest:
+                self._g.remove_edge(u, v, key=k)
+            else:  # keep the edge, scaled to the evidence that remains
+                d["data"] = {**d["data"], "evidence_artifact_ids": rest,
+                             "weight": d["data"].get("weight", 1.0) * len(rest) / len(ev)}
+        for nid, d in list(self._g.nodes(data=True)):
+            if d["kind"] != _ENTITY or artifact_id not in d["data"].get("artifact_ids", []):
+                continue
+            d["data"] = {**d["data"], "artifact_ids": [a for a in d["data"]["artifact_ids"] if a != artifact_id]}
+            if not d["data"]["artifact_ids"] and self._g.degree(nid) == 0 and d["data"]["type"] != "person":
+                self._g.remove_node(nid)  # a topic only this artifact mentioned
+        return True
+
     def to_json(self) -> dict[str, Any]:
         nodes = []
         for nid, d in self._g.nodes(data=True):

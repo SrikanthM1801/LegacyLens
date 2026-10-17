@@ -17,6 +17,12 @@ azure-identity==1.26.0
 # Audit trail (append blobs). 12.28.0 is the newest release that accepts azure-core 1.32.
 azure-storage-blob==12.28.0
 
+# SharePoint files -> text (Word, PowerPoint, Excel, PDF)
+python-docx==1.2.0
+python-pptx==1.0.2
+openpyxl==3.1.5
+pypdf==6.19.0
+
 # Azure (only used when USE_MOCKS=false)
 openai==1.57.0
 azure-search-documents==11.5.2

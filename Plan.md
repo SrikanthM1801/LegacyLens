@@ -617,3 +617,21 @@ holds no project knowledge itself. Chats outside the project leave no trace.
 `GET /audit?since&until&action&scope_id&actor&outcome&limit` (newest first; `action` takes a
 category like `consent`) needs header `X-Admin-Key: $ADMIN_API_KEY`; without a key configured it
 only answers in offline mode, so live audit data is never served unauthenticated.
+
+### Live sources only (17 Oct 2026)
+
+`USE_SAMPLE_DATA=false` stops loading `data/sample`; knowledge comes only from the project SharePoint
+site and consented Teams conversations. The synthetic dataset stays for tests (`USE_MOCKS=true`) and the
+planted-risk acceptance test. On the first start without sample data (or on every start when search is
+in-memory) the index and graph are rebuilt from live sources (`knowledge.rebuilt`).
+
+**SharePoint** (`ingestion/sharepoint.py`): Graph drive delta per document library of
+`SHAREPOINT_SITE_URL`, every `SHAREPOINT_SYNC_MINUTES`. New/changed files are downloaded, converted
+to text (`ingestion/file_text.py`), and indexed as `doc` artifacts (they count as documentation and
+cite the SharePoint `webUrl`); changed files replace their old chunks and graph links; deleted files are
+removed. Permission: `Sites.Selected` + a read grant on that one site. Registry of loaded files:
+`SyncState` table (`sp_file`, `sp_delta`); admin endpoints `GET /knowledge/sources`,
+`POST /knowledge/sync[?full=true]`, `POST /knowledge/rebuild` (X-Admin-Key). Audit: `capture.file`
+(per file: change added/modified/deleted, path, link, modified_by, status, chunks) and `sync.sharepoint`.
+Real documents need `USE_MOCKS=false`: the rule extractor only knows the sample project's topics,
+the LLM extractor discovers new ones, and Azure AI Search keeps the index across restarts.

@@ -9,6 +9,8 @@ subscription that tells us when a chat is created. Permissions (admin-consented)
   TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All — install ourselves with RSC
   AppCatalog.Read.All                                 — find our catalog id (or set TEAMS_CATALOG_APP_ID)
 Chat.ReadBasic.All also lets `scan` list project members' existing group chats (names + members).
+SharePoint (ingestion/sharepoint.py): Sites.Selected + a read grant on the project site only
+(or Sites.Read.All) — resolve the site, list its document libraries, read the drive delta, download.
 Message reads use the RSC grants (ChatMessage.Read.Chat / ChannelMessage.Read.Group) the
 chat or team gave the app at install. Never logs tokens or message bodies.
 """
@@ -51,6 +53,16 @@ class GraphMessage:
     html: str
 
 
+@dataclass
+class SiteInfo:
+    id: str
+    name: str
+    web_url: str = ""
+
+
+MAX_DOWNLOAD_BYTES = 30 * 1024 * 1024
+
+
 class GraphError(RuntimeError):
     def __init__(self, status: int, what: str):
         super().__init__(f"Graph {what} failed with HTTP {status}")
@@ -64,6 +76,10 @@ class GraphService(Protocol):
     async def chat_messages(self, chat_id: str, top: int) -> list[GraphMessage]: ...
     async def channel_messages(self, team_id: str, channel_id: str, top: int) -> list[GraphMessage]: ...
     async def recent_group_chat_ids(self, user_aad_id: str, top: int = 20) -> list[str]: ...
+    async def resolve_site(self, site_url: str) -> SiteInfo: ...
+    async def list_drives(self, site_id: str) -> list[tuple[str, str]]: ...
+    async def drive_delta(self, drive_id: str, delta_link: Optional[str]) -> tuple[list[dict], str]: ...
+    async def download(self, drive_id: str, item_id: str) -> bytes: ...
     async def ensure_chat_subscription(self, notification_url: str, client_state: str) -> str: ...
 
 
@@ -164,6 +180,43 @@ class AzureGraph:
             "GET", f"/users/{user_aad_id}/chats?$filter=chatType eq 'group'&$top={min(top, 50)}", "list user chats")
         return [c["id"] for c in d.get("value", [])]
 
+    async def resolve_site(self, site_url: str) -> SiteInfo:
+        """https://contoso.sharepoint.com/sites/Project -> site id; a raw site id is accepted too."""
+        if "://" not in site_url:
+            d = await self._call("GET", f"/sites/{site_url}", "get site")
+        else:
+            rest = site_url.split("://", 1)[1].rstrip("/")
+            host, _, path = rest.partition("/")
+            d = await self._call("GET", f"/sites/{host}:/{path}" if path else f"/sites/{host}", "resolve site")
+        return SiteInfo(id=d["id"], name=d.get("displayName") or d.get("name") or "", web_url=d.get("webUrl", ""))
+
+    async def list_drives(self, site_id: str) -> list[tuple[str, str]]:
+        d = await self._call("GET", f"/sites/{site_id}/drives?$select=id,name,driveType", "list libraries")
+        return [(x["id"], x.get("name", "")) for x in d.get("value", []) if x.get("driveType") == "documentLibrary"]
+
+    async def drive_delta(self, drive_id: str, delta_link: Optional[str]) -> tuple[list[dict], str]:
+        """All changes since `delta_link` (everything when None). Follows paging to the new delta link.
+        Raises GraphError(410) when Graph wants a full resync."""
+        url = delta_link or f"{GRAPH}/drives/{drive_id}/root/delta?$select=id,name,file,folder,deleted,size,cTag,webUrl,parentReference,lastModifiedDateTime,lastModifiedBy,createdBy"
+        items: list[dict] = []
+        while True:
+            d = await self._call("GET", url, "drive delta")
+            items.extend(d.get("value", []))
+            if "@odata.nextLink" in d:
+                url = d["@odata.nextLink"]
+                continue
+            return items, d.get("@odata.deltaLink", "")
+
+    async def download(self, drive_id: str, item_id: str) -> bytes:
+        headers = {"Authorization": f"Bearer {await self._token()}"}
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0), follow_redirects=True) as client:
+            r = await client.get(f"{GRAPH}/drives/{drive_id}/items/{item_id}/content", headers=headers)
+        if r.status_code >= 400:
+            raise GraphError(r.status_code, "download file")
+        if len(r.content) > MAX_DOWNLOAD_BYTES:
+            raise GraphError(413, "download file (too large)")
+        return r.content
+
     async def ensure_chat_subscription(self, notification_url: str, client_state: str) -> str:
         """Create or renew the tenant-wide 'chat created' subscription (55 min, no lifecycle URL needed)."""
         expires = (datetime.now(timezone.utc) + timedelta(minutes=55)).isoformat().replace("+00:00", "Z")
@@ -197,6 +250,10 @@ class MockGraph:
         self.installed: set[str] = set()
         self.uninstalled: set[str] = set()
         self.subscriptions: list[str] = []
+        self.sites: dict[str, SiteInfo] = {}
+        self.drives: dict[str, list[tuple[str, str]]] = {}
+        self.changes: dict[str, list[dict]] = {}     # drive id -> ordered change log
+        self.contents: dict[str, bytes] = {}
 
     async def get_chat(self, chat_id: str) -> ChatInfo:
         if chat_id not in self.chats:
@@ -218,6 +275,42 @@ class MockGraph:
 
     async def recent_group_chat_ids(self, user_aad_id: str, top: int = 20) -> list[str]:
         return [c.id for c in self.chats.values() if c.chat_type == "group" and user_aad_id in c.member_aad_ids][:top]
+
+    # --- SharePoint ------------------------------------------------------------
+    def add_site(self, url: str, site_id: str, name: str, drive_id: str = "drive-1") -> None:
+        self.sites[url] = SiteInfo(site_id, name, url)
+        self.drives[site_id] = [(drive_id, "Documents")]
+        self.changes.setdefault(drive_id, [])
+
+    def put_file(self, drive_id: str, item_id: str, name: str, data: bytes, *, by: str = "Alice",
+                 by_id: str = "aad-alice", folder: str = "/drive/root:", version: int = 1) -> None:
+        self.contents[item_id] = data
+        self.changes[drive_id].append({
+            "id": item_id, "name": name, "file": {}, "size": len(data), "cTag": f"c:{item_id},{version}",
+            "webUrl": f"https://contoso.sharepoint.com/sites/p/Shared Documents/{name}",
+            "parentReference": {"path": folder}, "lastModifiedDateTime": "2026-10-17T10:00:00Z",
+            "lastModifiedBy": {"user": {"id": by_id, "displayName": by}},
+            "createdBy": {"user": {"id": by_id, "displayName": by}},
+        })
+
+    def delete_file(self, drive_id: str, item_id: str) -> None:
+        self.changes[drive_id].append({"id": item_id, "deleted": {"state": "deleted"}})
+
+    async def resolve_site(self, site_url: str) -> SiteInfo:
+        if site_url not in self.sites:
+            raise GraphError(404, "resolve site")
+        return self.sites[site_url]
+
+    async def list_drives(self, site_id: str) -> list[tuple[str, str]]:
+        return self.drives.get(site_id, [])
+
+    async def drive_delta(self, drive_id: str, delta_link: Optional[str]) -> tuple[list[dict], str]:
+        log_ = self.changes.get(drive_id, [])
+        start = int(delta_link.split(":")[1]) if delta_link else 0
+        return [dict(c) for c in log_[start:]], f"seq:{len(log_)}"
+
+    async def download(self, drive_id: str, item_id: str) -> bytes:
+        return self.contents[item_id]
 
     async def ensure_chat_subscription(self, notification_url: str, client_state: str) -> str:
         self.subscriptions.append(notification_url)
