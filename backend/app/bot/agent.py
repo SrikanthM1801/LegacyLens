@@ -4,7 +4,12 @@ Microsoft 365 Agents SDK wiring for the LegacyLens Teams bot.
 Azure Bot Service posts every Teams activity to `POST /api/messages` (api/bot.py). This module
 builds the SDK pieces once: an MSAL connection for the single-tenant bot identity (BOT_APP_ID /
 BOT_APP_PASSWORD / BOT_APP_TENANT_ID), a CloudAdapter that sends replies back through Bot
-Service, and an AgentApplication whose handlers only strip the @mention and call `replies.py`.
+Service, and an AgentApplication whose handlers stay thin:
+  * bot added to a channel / group chat -> post the consent card (bot/consent.py); in a team,
+    also record the project roster that chat detection uses (bot/chat_watch.py);
+  * consent card click -> record the decision, then backfill or leave;
+  * message that @mentions us (or 1:1) -> answer via `replies.py`; `pause` / `resume` manage consent;
+  * any other message -> captured only if this conversation granted consent (bot/capture.py).
 
 We use hosting-core directly with a ~20-line FastAPI shim (`process`) rather than
 microsoft-agents-hosting-fastapi, because that package requires Starlette 1.x and our FastAPI
@@ -18,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Optional
 
@@ -34,8 +40,14 @@ from microsoft_agents.hosting.core import (
 )
 from microsoft_agents.hosting.core.authorization.jwt import _authorize_request
 
-from app.bot import replies
+from microsoft_agents.activity import Activity, Attachment
+
+from app.bot import consent, replies
+from app.bot.capture import LiveMessage, capture
 from app.config import Settings, get_settings
+from app.models import ConsentRecord, ProjectTeam
+from app.services.consent_store import get_consent_store, is_granted
+from app.services.graph_api import get_graph_api
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +112,119 @@ def _sdk_config(s: Settings) -> dict:
     return {"CONNECTIONS": {"SERVICE_CONNECTION": {"SETTINGS": settings}}, "CONNECTIONSMAP": [], "AGENTAPPLICATION": {}}
 
 
+#: Background work (backfill, capture) started from a turn; kept referenced until done.
+_tasks: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
+def _channel_data(activity) -> dict:
+    cd = activity.channel_data or {}
+    return cd.model_dump(by_alias=True, exclude_none=True) if hasattr(cd, "model_dump") else dict(cd)
+
+
+def scope_of(activity) -> tuple[str, str]:
+    """(scope_id, scope_type) for the conversation; channel thread suffixes are dropped."""
+    conv = activity.conversation
+    kind = {"channel": "channel", "groupChat": "chat"}.get(conv.conversation_type or "", "personal")
+    return conv.id.split(";")[0], kind
+
+
+def _card(card: dict) -> Activity:
+    return Activity(type="message", attachments=[
+        Attachment(content_type="application/vnd.microsoft.card.adaptive", content=card)])
+
+
+async def fetch_team_member_ids(context: TurnContext, team_id: str) -> list[str]:
+    """Project roster from the Bot Framework roster API (no Graph permission needed)."""
+    connector = context.turn_state.get("ConnectorClient")
+    members = await connector.conversations.get_conversation_members(team_id)
+    return [m.aad_object_id for m in members if m.aad_object_id]
+
+
+async def refresh_project(context: TurnContext) -> None:
+    team = _channel_data(context.activity).get("team") or {}
+    if not team.get("id"):
+        return
+    try:
+        member_ids = await fetch_team_member_ids(context, team["id"])
+    except Exception as e:  # roster is best effort; keep the last known one
+        log.warning("project roster refresh failed: %s", type(e).__name__)
+        return
+    await asyncio.to_thread(get_consent_store().save_project, ProjectTeam(
+        team_id=team["id"], aad_group_id=team.get("aadGroupId"), name=team.get("name") or "",
+        member_aad_ids=member_ids,
+    ))
+    log.info("project roster updated: %d members", len(member_ids))
+
+
+async def ask_consent(context: TurnContext) -> None:
+    store = get_consent_store()
+    scope_id, kind = scope_of(context.activity)
+    if kind == "channel":
+        await refresh_project(context)  # also covers `resume` in a team installed before roster tracking
+    rec = await asyncio.to_thread(store.get, scope_id)
+    if rec and rec.status == "granted":
+        await context.send_activity(
+            f"✅ I'm already learning from this conversation (allowed by {rec.granted_by or 'a member'}). "
+            "Type **@LegacyLens pause** to stop.")
+        return
+    if rec is None or rec.status in ("declined",):
+        team = _channel_data(context.activity).get("team") or {}
+        rec = ConsentRecord(
+            scope_id=scope_id, scope_type=kind,
+            display_name=(team.get("name") if kind == "channel" else context.activity.conversation.name) or "",
+            team_id=team.get("aadGroupId") if kind == "channel" else None,
+            channel_id=scope_id if kind == "channel" else None,
+            auto_installed=bool(rec and rec.auto_installed),
+            tenant_id=context.activity.conversation.tenant_id,
+        )
+    rec = await asyncio.to_thread(store.save, rec.model_copy(update={"status": "pending"}))
+    await context.send_activity(_card(consent.consent_card(rec)))
+
+
+async def on_consent_click(context: TurnContext, value: dict) -> None:
+    store, who = get_consent_store(), context.activity.from_property
+    scope_id = value.get("scope_id") or scope_of(context.activity)[0]
+    allow = value.get("verb") == consent.ALLOW
+    rec = await asyncio.to_thread(consent.decide, store, scope_id, allow, who.name or "", who.aad_object_id)
+    if rec is None:
+        await context.send_activity("That request has expired. Type **@LegacyLens resume** to ask again.")
+        return
+    if context.activity.reply_to_id:  # replace the buttons with the decision
+        try:
+            done = _card(consent.decided_card(rec))
+            done.id = context.activity.reply_to_id
+            await context.update_activity(done)
+        except Exception as e:
+            log.warning("could not update consent card: %s", type(e).__name__)
+            await context.send_activity(_card(consent.decided_card(rec)))
+    else:
+        await context.send_activity(_card(consent.decided_card(rec)))
+    if rec.status == "granted":
+        _spawn(consent.backfill(rec, get_graph_api()))
+    else:
+        _spawn(consent.leave_if_auto_installed(rec, get_graph_api()))
+
+
+def _live_message(activity, scope_id: str, kind: str) -> LiveMessage:
+    who = activity.from_property
+    return LiveMessage(
+        scope_id=scope_id, scope_type=kind, scope_name=activity.conversation.name or "",
+        message_id=activity.id or "", author_aad_id=who.aad_object_id or who.id, author_name=who.name or "",
+        timestamp=activity.timestamp or datetime.now(timezone.utc), text=activity.text or "",
+    )
+
+
+def _mentions_bot(activity) -> bool:
+    bot_id = activity.recipient.id if activity.recipient else None
+    return any(m.mentioned and m.mentioned.id == bot_id for m in TurnContext.get_mentions(activity))
+
+
 def build_bot(s: Optional[Settings] = None) -> Bot:
     s = s or get_settings()
     config = _sdk_config(s)
@@ -110,12 +235,49 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
     @app.conversation_update("membersAdded")
     async def on_members_added(context: TurnContext, _state: TurnState):
         bot_id = context.activity.recipient.id if context.activity.recipient else None
-        if any(m.id == bot_id for m in context.activity.members_added or []):
+        _, kind = scope_of(context.activity)
+        if kind == "channel":
+            await refresh_project(context)  # new teammates join the project roster
+        if not any(m.id == bot_id for m in context.activity.members_added or []):
+            return
+        if kind == "personal":
             await context.send_activity(replies.WELCOME)
+            return
+        if kind == "channel":
+            await context.send_activity(replies.WELCOME)
+        await ask_consent(context)
+
+    @app.conversation_update("membersRemoved")
+    async def on_members_removed(context: TurnContext, _state: TurnState):
+        if scope_of(context.activity)[1] == "channel":
+            await refresh_project(context)
 
     @app.activity("message")
     async def on_message(context: TurnContext, _state: TurnState):
-        text = TurnContext.remove_recipient_mention(context.activity) or ""
+        activity = context.activity
+        if isinstance(activity.value, dict) and activity.value.get("verb") in (consent.ALLOW, consent.DECLINE):
+            await on_consent_click(context, activity.value)
+            return
+        scope_id, kind = scope_of(activity)
+        if kind != "personal" and not _mentions_bot(activity):
+            # Not addressed to us: learn from it only if this conversation said yes.
+            if await asyncio.to_thread(is_granted, get_consent_store(), scope_id):
+                _spawn(asyncio.to_thread(capture, [_live_message(activity, scope_id, kind)]))
+            return
+        if kind == "channel":
+            await refresh_project(context)  # keep the project roster current (needs the live turn)
+        text = TurnContext.remove_recipient_mention(activity) or ""
+        command = " ".join(text.lower().split()).strip(" ./!?")
+        if kind != "personal" and command in ("pause", "stop"):
+            store = get_consent_store()
+            rec = await asyncio.to_thread(store.get, scope_id)
+            if rec:
+                await asyncio.to_thread(store.save, rec.model_copy(update={"status": "paused"}))
+            await context.send_activity(replies.PAUSED)
+            return
+        if kind != "personal" and command in ("resume", "consent", "allow"):
+            await ask_consent(context)
+            return
         try:
             reply = await asyncio.to_thread(replies.reply_for, text)
         except Exception:  # never leave the user without an answer; details stay in our logs

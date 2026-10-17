@@ -76,7 +76,9 @@ def test_api_messages_question_turn(client):
 def test_welcome_when_bot_is_added(client):
     body = activity("", mention=False, type="conversationUpdate", membersAdded=[BOT])
     body.pop("text")
-    assert bot_says(client, body) == [replies.WELCOME]
+    welcome, card = client.post("/api/messages", json=body).json()["activities"]
+    assert welcome["text"] == replies.WELCOME
+    assert card["attachments"][0]["contentType"] == "application/vnd.microsoft.card.adaptive"
 
 
 def test_probe_route(client):

@@ -42,3 +42,31 @@ Code: `backend/app/api/bot.py` (route), `backend/app/bot/agent.py` (SDK wiring, 
 ```
 Teams → Apps → Manage your apps → **Upload an app** → *Upload a custom app* → pick the zip →
 **Add to a team** (choose the project channel). Bump `version` in the template before re-uploading.
+
+## Consent and project group chats (live Microsoft 365)
+
+Flow: LegacyLens is added to a channel or group chat -> it posts **Allow / Not now** -> nothing is
+stored until Allow -> on Allow it backfills the last `BACKFILL_MESSAGES` messages and captures new
+ones -> `@LegacyLens pause` stops, `@LegacyLens resume` asks again. Consent records live in the
+`ConsentRecords` table; the project roster (members of the team LegacyLens is installed in) in `SyncState`.
+
+**Automatic project chats:** Graph tells `POST /webhooks/graph` whenever a chat is created. A group
+chat with >= `PROJECT_CHAT_MIN_MEMBERS` (2) project members gets LegacyLens installed, and the bot
+asks for consent in that chat. *Not now* uninstalls it again. 1:1 chats are never touched.
+
+One-time setup (tenant admin):
+1. Entra admin center -> App registrations -> the bot app (`BOT_APP_ID`) -> API permissions ->
+   Add -> Microsoft Graph -> **Application**: `Chat.ReadBasic.All`,
+   `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`, `AppCatalog.Read.All` ->
+   **Grant admin consent**.
+2. `.env`: `LIVE_M365=true`, `GRAPH_WEBHOOK_CLIENT_STATE=<random>`, `PUBLIC_BASE_URL=<tunnel>`,
+   `AZURE_TABLES_ACCOUNT_URL=...`. Run `az login` (Tables use your Entra identity, no keys).
+3. Restart uvicorn: the log shows `graph chat subscription active`. Re-install or `@LegacyLens resume`
+   in the project channel so the roster is recorded.
+
+Chats created before the roster was recorded (or while the server was down) are not re-notified
+by Graph; run `.venv/bin/python scripts/scan_project_chats.py` to check project members' recent
+group chats with the same rules.
+
+Guests: project members who are guests must **switch to this organisation in Teams** before creating
+the chat. A chat created from their home tenant is a cross-tenant chat we can't see or join.

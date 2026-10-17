@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import artifacts, ask, bot, graph, ingest, interviews, people, risks
+from app.api import artifacts, ask, bot, graph, ingest, interviews, people, risks, webhooks
+from app.bot.chat_watch import subscription_loop
 from app.config import VERSION, get_settings
 from app.graph import get_graph
 from app.ingestion.pipeline import ensure_index_ready
 from app.models import HealthResponse
 from app.services import risk_store
+from app.services.graph_api import get_graph_api
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +34,22 @@ async def lifespan(app: FastAPI):
             await run_in_threadpool(risk_store.get_risks)  # warm the cache so the first GET /risks is instant
     except Exception:  # a bad dataset must not stop the API from booting
         log.exception("startup ingest failed; call POST /ingest to retry")
+    watcher = _start_chat_watch()
     yield
+    if watcher:
+        watcher.cancel()
+
+
+def _start_chat_watch() -> Optional[asyncio.Task]:
+    """Keep the Graph 'new chat' subscription alive when live Microsoft 365 is configured."""
+    s = get_settings()
+    if not s.live_m365:
+        return None
+    if not (s.public_base_url and s.graph_webhook_client_state):
+        log.warning("LIVE_M365=true but PUBLIC_BASE_URL or GRAPH_WEBHOOK_CLIENT_STATE is missing; "
+                    "new project chats will not be detected")
+        return None
+    return asyncio.create_task(subscription_loop(get_graph_api()))
 
 
 def create_app() -> FastAPI:
@@ -59,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(artifacts.router)
     app.include_router(ask.router)
     app.include_router(bot.router)
+    app.include_router(webhooks.router)
     return app
 
 

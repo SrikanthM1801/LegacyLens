@@ -6,6 +6,8 @@ os.environ["USE_MOCKS"] = "true"
 # Run the Teams bot anonymously in tests, whatever .env holds.
 for _k in ("BOT_APP_ID", "BOT_APP_PASSWORD", "BOT_APP_TENANT_ID"):
     os.environ[_k] = ""
+# Never touch real Graph / Azure Tables from tests.
+os.environ["LIVE_M365"] = "false"
 _tmp = tempfile.mkdtemp(prefix="legacylens-test-")
 os.environ["GRAPH_PATH"] = os.path.join(_tmp, "graph.json")
 os.environ["STATE_DIR"] = os.path.join(_tmp, "state")

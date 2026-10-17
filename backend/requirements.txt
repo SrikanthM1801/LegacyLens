@@ -1,7 +1,7 @@
 # LegacyLens backend — Python 3.11+
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-pydantic==2.10.6
+pydantic==2.11.10
 pydantic-settings==2.6.1
 python-dotenv==1.1.1
 networkx==3.4.2
@@ -10,6 +10,10 @@ networkx==3.4.2
 # FastAPI shim instead of microsoft-agents-hosting-fastapi, which needs Starlette 1.x)
 microsoft-agents-hosting-core==1.8.0
 microsoft-agents-authentication-msal==1.8.0
+
+# Live Microsoft 365 state (consent records, project roster): keyless via Entra ID
+azure-data-tables==12.7.0
+azure-identity==1.26.0
 
 # Azure (only used when USE_MOCKS=false)
 openai==1.57.0

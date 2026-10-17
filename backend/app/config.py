@@ -70,6 +70,30 @@ class Settings(BaseSettings):
     bot_app_type: str = "SingleTenant"
     #: Public HTTPS base (dev tunnel / App Service); bot endpoint is <base>/api/messages.
     public_base_url: str = ""
+    #: Teams app manifest id (bot/manifest/manifest.template.json "id").
+    teams_app_manifest_id: str = "c0e23221-8df7-42a5-ae6d-122127e3cb7b"
+
+    # --- Live Microsoft 365 (Graph + Azure Tables) --------------------------
+    #: Separate from USE_MOCKS: real Graph calls, Graph subscriptions and Azure Table
+    #: storage only run when LIVE_M365=true. Off by default so tests stay offline.
+    live_m365: bool = False
+    #: Graph app credentials; blank = reuse the bot's Entra app (BOT_APP_*).
+    graph_tenant_id: str = ""
+    graph_client_id: str = ""
+    graph_client_secret: str = ""
+    #: Random secret Graph echoes on every notification; we reject mismatches.
+    graph_webhook_client_state: str = ""
+    #: Org-catalog id of the LegacyLens app; looked up from the manifest id when blank.
+    teams_catalog_app_id: str = ""
+    #: A new group chat is "a project chat" when at least this many members are on the project team.
+    project_chat_min_members: int = 2
+    #: Messages to backfill from a conversation right after consent.
+    backfill_messages: int = 50
+
+    azure_tables_account_url: str = ""
+    azure_storage_account_url: str = ""
+    azure_storage_container: str = "knowledge"
+    azure_language_endpoint: str = ""
 
     # --- API --------------------------------------------------------------
     #: Comma-separated (CORS_ORIGINS=http://a,http://b). Kept as a plain string
@@ -87,6 +111,15 @@ class Settings(BaseSettings):
     @property
     def azure_openai_configured(self) -> bool:
         return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
+
+    @property
+    def graph_credentials(self) -> tuple[str, str, str]:
+        """(tenant, client id, secret) for app-only Graph calls; falls back to the bot app."""
+        return (
+            self.graph_tenant_id or self.bot_app_tenant_id,
+            self.graph_client_id or self.bot_app_id,
+            self.graph_client_secret or self.bot_app_password,
+        )
 
     @property
     def azure_search_configured(self) -> bool:

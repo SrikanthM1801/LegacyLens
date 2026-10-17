@@ -451,3 +451,37 @@ class HealthResponse(Base):
     version: str
     artifacts_indexed: int = 0
     graph: GraphStats = Field(default_factory=GraphStats)
+
+
+# ---------------------------------------------------------------------------
+# 9. Live Microsoft 365: consent and project roster (Plan §11.6, §15)
+# ---------------------------------------------------------------------------
+
+
+class ConsentRecord(Base):
+    """
+    Whether LegacyLens may learn from one conversation (or mailbox / site).
+    Nothing from a scope is stored unless its record is `granted`.
+    """
+
+    scope_id: str                                  # Teams conversation id, mailbox, site id
+    scope_type: Literal["channel", "chat", "mailbox", "site"]
+    display_name: str = ""
+    status: Literal["pending", "granted", "declined", "paused"] = "pending"
+    team_id: Optional[str] = None                  # Graph group id, for channels
+    channel_id: Optional[str] = None               # Graph channel id, for channels
+    auto_installed: bool = False                   # we installed the app after detecting a project chat
+    granted_by: Optional[str] = None               # display name of who clicked Allow / Not now
+    granted_by_aad_id: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utcnow)
+    tenant_id: Optional[str] = None
+
+
+class ProjectTeam(Base):
+    """The Teams team LegacyLens is installed in; its members define 'the project'."""
+
+    team_id: str                                   # Bot Framework team id (19:...@thread.tacv2)
+    aad_group_id: Optional[str] = None             # Graph /teams/{id}
+    name: str = ""
+    member_aad_ids: list[str] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=utcnow)

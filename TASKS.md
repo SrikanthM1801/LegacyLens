@@ -59,7 +59,11 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [x] **T31a Teams app package** — manifest v1.29 (bot, RSC, `supportsChannelFeatures: tier1`), icons, `scripts/build_teams_package.py`; uploaded to the org catalog and installed in *LegacyLensProject*.
 - [x] **T31b Bot endpoint** — `POST /api/messages` (M365 Agents SDK, single-tenant), `@LegacyLens <question>` → `/ask` with sources, `risks`, `pause`, `help`; offline tests via `expectReplies`.
 - [ ] **T31c Live in Teams** — dev tunnel + Azure Bot messaging endpoint; @mention answers in the channel.
-- [ ] **T31d Consent card + live capture** — Allow/Not now card on install, `ConsentRecord`, ingest channel messages after Allow, real `pause` (Plan §11.6).
+- [x] **T31d Consent card + live capture** — Allow/Not now card on install, `ConsentRecord` in Azure Tables (keyless), backfill + capture after Allow, real `pause`/`resume` (Plan §11.6).
+- [x] **T31g Project group-chat detection** — Graph `/chats` subscription → group chat with ≥2 project members → install app → consent card; *Not now* uninstalls. Needs admin consent for 3 Graph permissions.
+- [ ] **T31h Azure AI Language PII** — replace/extend regex redaction with conversation PII + secret scanner before indexing.
+- [ ] **T31i Answer scoping** — filter search by the asker's conversations (`metadata.scope_id` + member ids).
+- [ ] **T31j Meeting transcripts** — RSC `OnlineMeetingTranscript.Read.Chat`, ingest after consent.
 - [ ] **T31e Interviews in 1:1 chat** — Adaptive Cards, one question at a time, review & approve (Plan §11.3).
 - [ ] **T31f Dashboard as a Teams tab** — static tab in the manifest pointing at the React risks page.
 

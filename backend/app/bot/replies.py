@@ -25,13 +25,13 @@ WELCOME = (
     "capture it before it's lost.\n\n"
     "- **@LegacyLens** *your question* — answered from project history, with citations\n"
     "- **@LegacyLens risks** — the topics most at risk right now\n"
-    "- **@LegacyLens pause** — stop me learning from this conversation\n"
+    "- **@LegacyLens pause** — stop me learning from this conversation (**resume** to ask again)\n"
     "- **@LegacyLens help** — this message"
 )
 
 PAUSED = (
-    "⏸️ Understood. I'm not learning from this conversation: live capture is off here, and "
-    "nothing from this chat has been stored."
+    "⏸️ Paused. I'm not learning from this conversation any more. "
+    "Type **@LegacyLens resume** if you want me to ask again."
 )
 
 

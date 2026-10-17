@@ -582,3 +582,13 @@ These are part of the pitch. Judges will ask about them.
 - [Exchange Online RBAC for Applications](https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac) — resource-scoped app roles; a tenant-wide Entra `Mail.Read` consent cannot be scoped down.
 - [Sites.Selected overview](https://learn.microsoft.com/en-us/graph/permissions-selected-overview) and [drive delta](https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/scan-guidance).
 - [M365 Developer Program eligibility](https://learn.microsoft.com/en-us/office/developer-program/join-with-visual-studio) — VS Pro/Enterprise standard or partner programs; no personal accounts.
+
+### Addendum (17 Oct 2026, later): live data decisions
+
+| # | Decision | Notes |
+|---|---|---|
+| 8 | **Seed data comes from real people.** Project members post realistic conversations in the tenant; synthetic JSON stays for offline tests (`USE_MOCKS=true`) and the planted-risk acceptance test. | |
+| 9 | **Automatic project group-chat detection.** Graph `/chats` (created) subscription with `Chat.ReadBasic.All` (names + members only); group chat with ≥2 members of the project team → install LegacyLens with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` → consent card in the chat. *Not now* uninstalls. 1:1 chats never. | Tenant-wide metadata permission: disclose it in the pitch |
+| 10 | **Storage:** consent + roster + sync state in Azure Table Storage (`legacylensdata`, shared-key auth disabled, Entra-only); graph/state blobs in container `knowledge`; PII via Azure AI Language (`legacylens-language`, keyless). See AzureResources.md. | |
+| 11 | **Meetings via transcripts** (not the Copilot insights API). | |
+| 12 | **`LIVE_M365`** switches real Graph/Tables on, independently of `USE_MOCKS`. | Tests force it off |

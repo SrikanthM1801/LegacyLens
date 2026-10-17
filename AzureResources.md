@@ -70,6 +70,21 @@ Eight of the ten values are known now; the two API keys must be fetched with the
 
 Other identifiers for reference: resource group `rg-legacylens`, chat model version `2024-11-20`, embedding model version `1`.
 
+## Data storage and PII resources (17 Oct 2026)
+
+Created for live Microsoft 365 data. Both are **keyless**: account keys are disabled, and access is through Entra ID roles only (your `az login` locally, a managed identity once deployed). Nothing here holds raw conversations; see Plan §15.
+
+| Resource | Name | SKU | Region | Security settings |
+| --- | --- | --- | --- | --- |
+| Storage account | `legacylensdata` | StorageV2, Standard_LRS | eastus2 | Shared-key access **off**, public blob access off, HTTPS only, TLS 1.2, blob + container soft delete 7 days, encrypted at rest by default |
+| ↳ Blob container | `knowledge` | — | — | Knowledge graph and app state (redacted content only) |
+| ↳ Tables | `ConsentRecords`, `SyncState`, `AuditLog` | — | — | Consent per conversation/mailbox/site; delta/subscription cursors; who asked what and which chunks were cited (no content) |
+| Azure AI Language | `legacylens-language` | F0 (free, 5K text records/month) | eastus2 | Custom domain, `disableLocalAuth=true`; used for PII detection/redaction before indexing |
+
+Role assignments (scoped to each resource, signed-in user): Storage Blob Data Contributor, Storage Table Data Contributor, Cognitive Services User. The deployed app's managed identity needs the same three roles.
+
+Verified: key-based storage calls are rejected ("not permitted on this storage account"); a keyless PII call redacted a phone number and a personal email address.
+
 ## Rate limits, decisions and gotchas
 
 The embedding deployment is the tightest limit at 10K tokens per minute, so ingestion should batch inputs and retry on HTTP 429.
