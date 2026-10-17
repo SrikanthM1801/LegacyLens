@@ -46,6 +46,7 @@ from app.bot import consent, replies
 from app.bot.capture import LiveMessage, capture
 from app.config import Settings, get_settings
 from app.models import ConsentRecord, ProjectTeam
+from app.services import audit
 from app.services.consent_store import get_consent_store, is_granted
 from app.services.graph_api import get_graph_api
 
@@ -134,6 +135,19 @@ def scope_of(activity) -> tuple[str, str]:
     return conv.id.split(";")[0], kind
 
 
+def _actor(activity) -> dict:
+    who = activity.from_property
+    return {"actor_name": who.name if who else None, "actor_aad_id": who.aad_object_id if who else None}
+
+
+def _scope(rec_or_activity) -> dict:
+    if isinstance(rec_or_activity, ConsentRecord):
+        r = rec_or_activity
+        return {"scope_type": r.scope_type, "scope_id": r.scope_id, "scope_name": r.display_name or None}
+    scope_id, kind = scope_of(rec_or_activity)
+    return {"scope_type": kind, "scope_id": scope_id, "scope_name": rec_or_activity.conversation.name}
+
+
 def _card(card: dict) -> Activity:
     return Activity(type="message", attachments=[
         Attachment(content_type="application/vnd.microsoft.card.adaptive", content=card)])
@@ -143,7 +157,9 @@ async def fetch_team_member_ids(context: TurnContext, team_id: str) -> list[str]
     """Project roster from the Bot Framework roster API (no Graph permission needed)."""
     connector = context.turn_state.get("ConnectorClient")
     members = await connector.conversations.get_conversation_members(team_id)
-    return [m.aad_object_id for m in members if m.aad_object_id]
+    # Teams' roster API names the Entra id `objectId`, which the SDK keeps as an extra field.
+    ids = [m.aad_object_id or (m.model_extra or {}).get("objectId") for m in members]
+    return [i for i in ids if i]
 
 
 async def refresh_project(context: TurnContext) -> None:
@@ -155,14 +171,21 @@ async def refresh_project(context: TurnContext) -> None:
     except Exception as e:  # roster is best effort; keep the last known one
         log.warning("project roster refresh failed: %s", type(e).__name__)
         return
-    await asyncio.to_thread(get_consent_store().save_project, ProjectTeam(
+    store = get_consent_store()
+    before = next((p for p in await asyncio.to_thread(store.projects) if p.team_id == team["id"]), None)
+    await asyncio.to_thread(store.save_project, ProjectTeam(
         team_id=team["id"], aad_group_id=team.get("aadGroupId"), name=team.get("name") or "",
         member_aad_ids=member_ids,
     ))
-    log.info("project roster updated: %d members", len(member_ids))
+    if before is None or set(before.member_aad_ids) != set(member_ids):
+        log.info("project roster updated: %d members", len(member_ids))
+        audit.record("roster.updated", source="teams", scope_type="team", scope_id=team["id"],
+                     scope_name=team.get("name"), count=len(member_ids),
+                     details={"added": len(set(member_ids) - set(before.member_aad_ids if before else [])),
+                              "removed": len(set(before.member_aad_ids if before else []) - set(member_ids))})
 
 
-async def ask_consent(context: TurnContext) -> None:
+async def ask_consent(context: TurnContext, trigger: str = "install") -> None:
     store = get_consent_store()
     scope_id, kind = scope_of(context.activity)
     if kind == "channel":
@@ -185,6 +208,8 @@ async def ask_consent(context: TurnContext) -> None:
         )
     rec = await asyncio.to_thread(store.save, rec.model_copy(update={"status": "pending"}))
     await context.send_activity(_card(consent.consent_card(rec)))
+    audit.record("consent.requested", source="teams", **_actor(context.activity), **_scope(rec),
+                 details={"trigger": trigger, "auto_installed": rec.auto_installed})
 
 
 async def on_consent_click(context: TurnContext, value: dict) -> None:
@@ -195,6 +220,8 @@ async def on_consent_click(context: TurnContext, value: dict) -> None:
     if rec is None:
         await context.send_activity("That request has expired. Type **@LegacyLens resume** to ask again.")
         return
+    audit.record(f"consent.{rec.status}", source="teams", **_actor(context.activity), **_scope(rec),
+                 details={"auto_installed": rec.auto_installed})
     if context.activity.reply_to_id:  # replace the buttons with the decision
         try:
             done = _card(consent.decided_card(rec))
@@ -262,7 +289,7 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
         if kind != "personal" and not _mentions_bot(activity):
             # Not addressed to us: learn from it only if this conversation said yes.
             if await asyncio.to_thread(is_granted, get_consent_store(), scope_id):
-                _spawn(asyncio.to_thread(capture, [_live_message(activity, scope_id, kind)]))
+                _spawn(asyncio.to_thread(capture, [_live_message(activity, scope_id, kind)], "live"))
             return
         if kind == "channel":
             await refresh_project(context)  # keep the project roster current (needs the live turn)
@@ -273,15 +300,19 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
             rec = await asyncio.to_thread(store.get, scope_id)
             if rec:
                 await asyncio.to_thread(store.save, rec.model_copy(update={"status": "paused"}))
+                audit.record("consent.paused", source="teams", **_actor(activity), **_scope(rec))
             await context.send_activity(replies.PAUSED)
             return
         if kind != "personal" and command in ("resume", "consent", "allow"):
-            await ask_consent(context)
+            await ask_consent(context, trigger="resume")
             return
         try:
-            reply = await asyncio.to_thread(replies.reply_for, text)
+            reply, cited, kind_of_reply = await asyncio.to_thread(replies.respond, text)
+            audit.record("ask.answered", source="teams", **_actor(activity), **_scope(activity),
+                         item_ids=cited, details={"reply": kind_of_reply})
         except Exception:  # never leave the user without an answer; details stay in our logs
             log.exception("bot reply failed")
+            audit.record("ask.answered", outcome="failure", source="teams", **_actor(activity), **_scope(activity))
             reply = "Sorry, something went wrong while answering. Please try again in a moment."
         await context.send_activity(reply)
 

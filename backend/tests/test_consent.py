@@ -16,6 +16,7 @@ from app.models import ProjectTeam
 from app.services.consent_store import get_consent_store
 from app.services.graph_api import ChatInfo, GraphMessage, get_graph_api
 
+REAL_FETCH_ROSTER = agent.fetch_team_member_ids  # before the autouse fixture patches it
 BOT = {"id": "28:legacylens-bot", "name": "LegacyLens"}
 TEAM = {"id": "19:team@thread.tacv2", "aadGroupId": "group-1", "name": "LegacyLensProject"}
 ALICE = {"id": "29:alice", "name": "Alice", "aadObjectId": "aad-alice"}
@@ -182,3 +183,20 @@ def test_scan_existing_chats_uses_the_same_rules():
     graph.chats["old-other"] = ChatInfo("old-other", "group", "", ["aad-alice", "aad-x", "aad-y"])
     assert asyncio.run(scan_existing_chats(store, graph)) == {"old-project": "invited", "old-other": "not-project"}
     assert asyncio.run(scan_existing_chats(store, graph))["old-project"] == "known"
+
+
+def test_roster_reads_teams_objectId_field():
+    from microsoft_agents.activity import ChannelAccount
+
+    class Conversations:
+        async def get_conversation_members(self, _team_id):
+            return [ChannelAccount.model_validate(m) for m in (
+                {"id": "29:a", "name": "A", "objectId": "aad-a", "userRole": "user"},
+                {"id": "29:b", "name": "B", "aadObjectId": "aad-b"},
+                {"id": "29:c", "name": "C"},
+            )]
+
+    class Ctx:
+        turn_state = {"ConnectorClient": type("C", (), {"conversations": Conversations()})()}
+
+    assert asyncio.run(REAL_FETCH_ROSTER(Ctx(), "t")) == ["aad-a", "aad-b"]

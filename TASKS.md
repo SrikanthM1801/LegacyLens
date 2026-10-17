@@ -63,6 +63,8 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [x] **T31g Project group-chat detection** — Graph `/chats` subscription → group chat with ≥2 project members → install app → consent card; *Not now* uninstalls. Needs admin consent for 3 Graph permissions.
 - [ ] **T31h Azure AI Language PII** — replace/extend regex redaction with conversation PII + secret scanner before indexing.
 - [ ] **T31i Answer scoping** — filter search by the asker's conversations (`metadata.scope_id` + member ids).
+- [x] **T31k Audit trail** — every consent/detection/capture/answer/publish event appended to Azure Blob (`audit` container, hourly JSONL); `GET /audit` with filters + `X-Admin-Key`.
+- [ ] **T31l Admin page** — Teams tab / React page over `GET /audit`: timeline, filters by category/conversation/person, consent overview, chat read history.
 - [ ] **T31j Meeting transcripts** — RSC `OnlineMeetingTranscript.Read.Chat`, ingest after consent.
 - [ ] **T31e Interviews in 1:1 chat** — Adaptive Cards, one question at a time, review & approve (Plan §11.3).
 - [ ] **T31f Dashboard as a Teams tab** — static tab in the manifest pointing at the React risks page.

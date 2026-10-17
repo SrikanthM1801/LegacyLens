@@ -78,7 +78,8 @@ Created for live Microsoft 365 data. Both are **keyless**: account keys are disa
 | --- | --- | --- | --- | --- |
 | Storage account | `legacylensdata` | StorageV2, Standard_LRS | eastus2 | Shared-key access **off**, public blob access off, HTTPS only, TLS 1.2, blob + container soft delete 7 days, encrypted at rest by default |
 | ↳ Blob container | `knowledge` | — | — | Knowledge graph and app state (redacted content only) |
-| ↳ Tables | `ConsentRecords`, `SyncState`, `AuditLog` | — | — | Consent per conversation/mailbox/site; delta/subscription cursors; who asked what and which chunks were cited (no content) |
+| ↳ Blob container | `audit` | — | — | Audit trail for the admin page: append blobs `events/YYYY/MM/DD/HH.jsonl`, one event per line (ids, names, counts; never message text) |
+| ↳ Tables | `ConsentRecords`, `SyncState`, `AuditLog` | — | — | Consent per conversation/mailbox/site; project roster + sync cursors. `AuditLog` table is unused (audit moved to the `audit` blob container) and can be deleted |
 | Azure AI Language | `legacylens-language` | F0 (free, 5K text records/month) | eastus2 | Custom domain, `disableLocalAuth=true`; used for PII detection/redaction before indexing |
 
 Role assignments (scoped to each resource, signed-in user): Storage Blob Data Contributor, Storage Table Data Contributor, Cognitive Services User. The deployed app's managed identity needs the same three roles.

@@ -20,6 +20,7 @@ import re
 
 from app.config import get_settings
 from app.models import ConsentRecord
+from app.services import audit
 from app.services.consent_store import ConsentStore, project_member_ids
 from app.services.graph_api import GraphError, GraphService
 
@@ -35,6 +36,8 @@ def chat_ids_from_notification(payload: dict, client_state: str) -> list[str]:
     for item in payload.get("value", []):
         if not client_state or item.get("clientState") != client_state:
             log.warning("graph notification with wrong clientState ignored")
+            audit.record("security.webhook_rejected", outcome="failure", source="graph",
+                         details={"reason": "clientState mismatch"})
             continue
         if str(item.get("changeType", "")).lower() != "created":
             continue
@@ -55,6 +58,8 @@ async def handle_new_chat(chat_id: str, store: ConsentStore, graph: GraphService
         chat = await graph.get_chat(chat_id)
     except GraphError as e:
         log.warning("new chat lookup failed: %s", e)
+        audit.record("detection.lookup_failed", outcome="failure", source="graph", scope_type="chat",
+                     scope_id=chat_id, details={"error": f"HTTP {e.status}"})
         return "error"
     if chat.chat_type != "group":
         return "not-group"
@@ -71,9 +76,16 @@ async def handle_new_chat(chat_id: str, store: ConsentStore, graph: GraphService
     except GraphError as e:
         log.warning("could not add LegacyLens to a project chat: %s", e)
         store.save(record.model_copy(update={"status": "declined", "granted_by": "install failed"}))
+        audit.record("detection.install_failed", outcome="failure", source="graph", actor_name="LegacyLens",
+                     scope_type="chat", scope_id=chat.id, scope_name=chat.topic or None,
+                     details={"error": f"HTTP {e.status}"})
         return "error"
     log.info("project group chat detected (%d of %d members on the project); consent requested",
              len(on_project), len(chat.member_aad_ids))
+    audit.record("detection.chat_invited", source="graph", actor_name="LegacyLens", scope_type="chat",
+                 scope_id=chat.id, scope_name=chat.topic or None, count=len(chat.member_aad_ids),
+                 details={"members": len(chat.member_aad_ids), "project_members": len(on_project),
+                          "member_names": sorted(n for n in chat.member_names.values() if n)})
     return "invited"
 
 
@@ -97,10 +109,23 @@ async def subscription_loop(graph: GraphService) -> None:
     s = get_settings()
     url = s.public_base_url.rstrip("/") + "/webhooks/graph"
     await asyncio.sleep(5)  # let the server accept Graph's validation request first
+    from app.bot.roster import rebuild_rosters
+    from app.services.consent_store import get_consent_store
+    try:
+        await rebuild_rosters(get_consent_store())  # roster ready even before anyone types in the channel
+    except Exception as e:
+        log.warning("startup roster load failed: %s", type(e).__name__)
+    active = False
     while True:
         try:
             await graph.ensure_chat_subscription(url, s.graph_webhook_client_state)
             log.info("graph chat subscription active")
+            if not active:
+                audit.record("system.subscription_active", source="graph", details={"resource": "/chats"})
+            active = True
         except GraphError as e:
             log.warning("graph chat subscription failed: %s", e)
+            audit.record("system.subscription_failed", outcome="failure", source="graph",
+                         details={"resource": "/chats", "error": f"HTTP {e.status}"})
+            active = False
         await asyncio.sleep(RENEW_EVERY_S)

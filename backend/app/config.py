@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     azure_tables_account_url: str = ""
     azure_storage_account_url: str = ""
     azure_storage_container: str = "knowledge"
+    #: Append-blob audit trail for the admin page (events/YYYY/MM/DD/HH.jsonl).
+    audit_container: str = "audit"
+    #: Required as X-Admin-Key on /audit. Blank = /audit only answers with LIVE_M365=false.
+    admin_api_key: str = ""
     azure_language_endpoint: str = ""
 
     # --- API --------------------------------------------------------------

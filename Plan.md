@@ -592,3 +592,28 @@ These are part of the pitch. Judges will ask about them.
 | 10 | **Storage:** consent + roster + sync state in Azure Table Storage (`legacylensdata`, shared-key auth disabled, Entra-only); graph/state blobs in container `knowledge`; PII via Azure AI Language (`legacylens-language`, keyless). See AzureResources.md. | |
 | 11 | **Meetings via transcripts** (not the Copilot insights API). | |
 | 12 | **`LIVE_M365`** switches real Graph/Tables on, independently of `USE_MOCKS`. | Tests force it off |
+
+### Audit trail (17 Oct 2026)
+
+Every action LegacyLens takes is appended to Azure Blob Storage (`legacylensdata/audit`, append
+blobs `events/YYYY/MM/DD/HH.jsonl`) for the admin page, via `services/audit.py`. Events hold ids,
+names and counts only — never message text, file contents or question text — so the audit trail
+holds no project knowledge itself. Chats outside the project leave no trace.
+
+| Action | When | Key fields |
+|---|---|---|
+| `roster.updated` | project team membership changed / reloaded | count, added, removed |
+| `detection.chat_invited` / `install_failed` / `lookup_failed` / `app_removed` | project group chat found, LegacyLens added or removed | members, project_members, member_names |
+| `consent.requested` / `granted` / `declined` / `paused` | card posted, button clicked, `@LegacyLens pause` | actor, scope, trigger, auto_installed |
+| `capture.backfill` / `capture.message` | history read after Allow / live message indexed | message_ids, authors, artifact ids, chunks, redactions |
+| `ask.answered` | answer in Teams or via `POST /ask` | actor, scope, cited artifact ids, reply kind |
+| `ingest.completed` | `POST /ingest` | artifacts, chunks, redactions |
+| `interview.started` / `answered` / `approved` | interview lifecycle | risk before/after on approve |
+| `artifact.generated` | runbook / handover created | cited artifact ids, title |
+| `security.webhook_rejected` | Graph notification with wrong clientState | — |
+| `system.started` / `subscription_active` / `subscription_failed` | server and Graph subscription | — |
+| *(reserved)* `capture.file`, `capture.email`, `capture.transcript` | SharePoint, mailbox, meetings (to come) | |
+
+`GET /audit?since&until&action&scope_id&actor&outcome&limit` (newest first; `action` takes a
+category like `consent`) needs header `X-Admin-Key: $ADMIN_API_KEY`; without a key configured it
+only answers in offline mode, so live audit data is never served unauthenticated.

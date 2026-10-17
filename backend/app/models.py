@@ -485,3 +485,40 @@ class ProjectTeam(Base):
     name: str = ""
     member_aad_ids: list[str] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# 10. Audit trail (admin page): what LegacyLens read, learned, asked and did
+# ---------------------------------------------------------------------------
+
+
+class AuditEvent(Base):
+    """
+    One audit record. Ids, names and counts only: never message text, file contents or
+    question text, so the audit trail itself holds no project knowledge.
+    `action` is "<category>.<verb>", e.g. consent.granted, capture.message, detection.chat_invited.
+    """
+
+    id: str = Field(default_factory=lambda: new_id("audit"))
+    timestamp: datetime = Field(default_factory=utcnow)
+    action: str
+    outcome: Literal["success", "failure", "skipped"] = "success"
+    source: Literal["teams", "graph", "sharepoint", "mailbox", "api", "system"] = "system"
+    actor_name: Optional[str] = None               # who did it (person) or "LegacyLens"
+    actor_aad_id: Optional[str] = None
+    scope_type: Optional[str] = None               # channel | chat | mailbox | site | topic | interview
+    scope_id: Optional[str] = None
+    scope_name: Optional[str] = None
+    count: Optional[int] = None                    # messages / files / chunks affected
+    item_ids: list[str] = Field(default_factory=list)  # message, file or artifact ids (capped)
+    details: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def category(self) -> str:
+        return self.action.split(".", 1)[0]
+
+
+class AuditListResponse(Base):
+    items: list[AuditEvent] = Field(default_factory=list)
+    total: int = 0
+    actions: list[str] = Field(default_factory=list)  # distinct actions in the window, for filters

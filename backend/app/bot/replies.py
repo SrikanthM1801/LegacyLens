@@ -37,19 +37,25 @@ PAUSED = (
 
 def reply_for(text: str) -> str:
     """Route one user message (mention already removed) to a reply."""
+    return respond(text)[0]
+
+
+def respond(text: str) -> tuple[str, list[str], str]:
+    """(reply, cited artifact ids, reply kind) — the ids and kind feed the audit trail."""
     text = " ".join((text or "").split())
     command = text.lower().strip(" ./!?")
     if command in ("", "help", "hi", "hello"):
-        return WELCOME
+        return WELCOME, [], "help"
     if command in ("risks", "risk", "top risks"):
-        return format_risks(risk_store.get_risks().items[:MAX_RISKS_SHOWN])
+        return format_risks(risk_store.get_risks().items[:MAX_RISKS_SHOWN]), [], "risks"
     if command in ("pause", "stop"):
-        return PAUSED
+        return PAUSED, [], "pause"
     if command == "ask":
-        return "What would you like to know? Try: *@LegacyLens how do we recover from a payment gateway outage?*"
+        return "What would you like to know? Try: *@LegacyLens how do we recover from a payment gateway outage?*", [], "help"
     if command.startswith("ask "):
         text = text[4:]
-    return format_answer(ask(text))
+    resp = ask(text)
+    return format_answer(resp), [c.artifact_id for c in resp.citations], "answer" if resp.citations else "no_answer"
 
 
 def ask(question: str) -> AskResponse:

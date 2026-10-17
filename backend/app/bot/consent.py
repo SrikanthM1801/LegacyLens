@@ -18,6 +18,7 @@ from typing import Optional
 from app.bot.capture import LiveMessage, capture
 from app.config import get_settings
 from app.models import ConsentRecord
+from app.services import audit
 from app.services.consent_store import ConsentStore
 from app.services.graph_api import GraphError, GraphService
 
@@ -91,6 +92,9 @@ async def backfill(record: ConsentRecord, graph: GraphService) -> int:
             return 0
     except GraphError as e:
         log.warning("backfill skipped for a %s: %s", record.scope_type, e)
+        audit.record("capture.backfill", outcome="failure", source="graph", actor_name="LegacyLens",
+                     scope_type=record.scope_type, scope_id=record.scope_id, scope_name=record.display_name or None,
+                     details={"error": f"HTTP {e.status}"})
         return 0
     live = [
         LiveMessage(scope_id=record.scope_id, scope_type=record.scope_type, scope_name=record.display_name,
@@ -98,12 +102,17 @@ async def backfill(record: ConsentRecord, graph: GraphService) -> int:
                     timestamp=m.created, text=m.html)
         for m in msgs
     ]
-    return await asyncio.to_thread(capture, live)
+    return await asyncio.to_thread(capture, live, "backfill")
 
 
 async def leave_if_auto_installed(record: ConsentRecord, graph: GraphService) -> None:
     if record.scope_type == "chat" and record.auto_installed:
+        scope = dict(scope_type="chat", scope_id=record.scope_id, scope_name=record.display_name or None)
         try:
             await graph.uninstall_app_from_chat(record.scope_id)
+            audit.record("detection.app_removed", source="graph", actor_name="LegacyLens", **scope,
+                         details={"reason": "consent declined"})
         except GraphError as e:
             log.warning("could not leave declined chat: %s", e)
+            audit.record("detection.app_removed", outcome="failure", source="graph", actor_name="LegacyLens",
+                         **scope, details={"error": f"HTTP {e.status}"})

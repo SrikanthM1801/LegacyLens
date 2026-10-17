@@ -11,6 +11,7 @@ from app.agents.interviewer import follow_up_for, generate_questions, is_vague
 from app.graph import get_graph
 from app.ingestion.extractor import get_extractor
 from app.ingestion.pipeline import ingest_lock
+from app.services import audit
 from app.models import (
     AnswerRequest, AnswerResponse, ApproveResponse, EntityType, InterviewAnswer, InterviewSession, InterviewStatus, RiskItem,
     StartInterviewRequest,
@@ -65,6 +66,8 @@ def start_interview(risk_id: str, response: Response, req: Optional[StartIntervi
         status=InterviewStatus.PENDING, questions=questions,
     )
     interview_store.save(session)
+    audit.record("interview.started", source="api", actor_name=person.name, scope_type="interview",
+                 scope_id=session.id, scope_name=risk.topic, count=len(questions), details={"risk_id": risk.id})
     response.status_code = 201
     return session
 
@@ -123,6 +126,9 @@ def answer_question(session_id: str, req: AnswerRequest) -> AnswerResponse:
 
         session.status = InterviewStatus.IN_PROGRESS
         interview_store.save(session)
+        audit.record("interview.answered", source="api", actor_name=(graph.get_entity(who).name),
+                     scope_type="interview", scope_id=session.id, scope_name=session.topic,
+                     details={"question_id": question.id, "follow_up_asked": new_follow_up is not None})
 
     return AnswerResponse(
         session=session, stored_answer=answer, artifact_id=f"art_interview_{answer.id}",
@@ -145,10 +151,18 @@ def approve_interview(session_id: str) -> ApproveResponse:
                 raise HTTPException(status_code=409, detail="This interview is already approved and published")
             risk = risk_store.get_risk(session.risk_id)
             try:
-                return approve_session(
+                result = approve_session(
                     session, graph=get_graph(), search=get_search(), extractor=get_extractor(), llm=get_llm(),
                     topic_entity_id=risk.entity_id if risk else None,
                 )
+                person = get_graph().get_entity(session.interviewee)
+                audit.record("interview.approved", source="api", actor_name=person.name if person else None,
+                             scope_type="interview", scope_id=session.id, scope_name=session.topic,
+                             count=result.artifacts_published, details={
+                                 "chunks": result.chunks_indexed,
+                                 "risk_before": result.risk_before.risk_score if result.risk_before else None,
+                                 "risk_after": result.risk_after.risk_score if result.risk_after else None})
+                return result
             except NothingToPublish as e:
                 raise HTTPException(status_code=409, detail=str(e))
             except HTTPException:

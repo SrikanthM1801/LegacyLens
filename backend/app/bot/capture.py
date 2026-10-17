@@ -21,7 +21,7 @@ from app.graph import get_graph
 from app.ingestion.extractor import get_extractor
 from app.ingestion.pipeline import index_artifacts, ingest_lock
 from app.models import Artifact, ArtifactType, Person
-from app.services import risk_store
+from app.services import audit, risk_store
 from app.services.interview_publish import people_from_graph
 from app.services.llm import get_llm
 from app.services.search import get_search
@@ -76,12 +76,15 @@ def to_artifact(m: LiveMessage) -> Artifact:
     )
 
 
-def capture(messages: list[LiveMessage]) -> int:
-    """Index new messages; returns how many artifacts were added. Blocking — call via a thread."""
+def capture(messages: list[LiveMessage], reason: str = "live") -> int:
+    """Index new messages; returns how many artifacts were added. Blocking — call via a thread.
+    `reason` (live | backfill) names the audit event: capture.message / capture.backfill."""
     graph = get_graph()
     arts = [to_artifact(m) for m in messages]
     fresh = [a for a in arts if len(a.body) >= MIN_CHARS and not graph.has_node(a.id)]
     if not fresh:
+        if reason == "backfill":
+            _audit(messages, [], reason)  # still worth knowing the history was read
         return 0
     people = {p.id: p for p in people_from_graph(graph)}
     for m in messages:
@@ -97,4 +100,25 @@ def capture(messages: list[LiveMessage]) -> int:
     risk_store.invalidate()
     log.info("live capture: %d messages -> %d chunks (%d redactions)",
              len(fresh), resp.chunks_indexed, sum(redactions.values()))
+    _audit(messages, [a.id for a in fresh], reason, chunks=resp.chunks_indexed, redactions=dict(redactions))
     return len(fresh)
+
+
+def _audit(messages: list[LiveMessage], new_artifact_ids: list[str], reason: str, **details) -> None:
+    """One audit event per conversation: which messages were read, by whom, and what was indexed."""
+    by_scope: dict[str, list[LiveMessage]] = {}
+    for m in messages:
+        by_scope.setdefault(m.scope_id, []).append(m)
+    for scope_id, msgs in by_scope.items():
+        audit.record(
+            "capture.backfill" if reason == "backfill" else "capture.message",
+            outcome="success" if new_artifact_ids else "skipped", source="teams", actor_name="LegacyLens",
+            scope_type=msgs[0].scope_type, scope_id=scope_id, scope_name=msgs[0].scope_name or None,
+            item_ids=new_artifact_ids, count=len(new_artifact_ids),
+            details={
+                "messages_read": len(msgs),
+                "message_ids": [m.message_id for m in msgs][:50],
+                "authors": sorted({m.author_name for m in msgs if m.author_name}),
+                **details,
+            },
+        )

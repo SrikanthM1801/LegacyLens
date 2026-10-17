@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from app.agents.copilot import answer_question
 from app.graph import get_graph
 from app.models import AskRequest, AskResponse
-from app.services import risk_store
+from app.services import audit, risk_store
 from app.services.llm import get_llm
 from app.services.search import get_search
 
@@ -24,4 +24,7 @@ def ask(req: AskRequest) -> AskResponse:
     if len(question) > MAX_QUESTION_CHARS:
         raise HTTPException(status_code=422, detail=f"Question is longer than {MAX_QUESTION_CHARS} characters")
     req = req.model_copy(update={"question": question})
-    return answer_question(req, get_graph(), get_search(), get_llm(), risk_store.get_risks().items)
+    resp = answer_question(req, get_graph(), get_search(), get_llm(), risk_store.get_risks().items)
+    audit.record("ask.answered", source="api", item_ids=[c.artifact_id for c in resp.citations],
+                 details={"reply": "answer" if resp.citations else "no_answer", "confidence": round(resp.confidence, 2)})
+    return resp

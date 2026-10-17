@@ -11,16 +11,32 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import artifacts, ask, bot, graph, ingest, interviews, people, risks, webhooks
+from app.api import artifacts, ask, audit, bot, graph, ingest, interviews, people, risks, webhooks
 from app.bot.chat_watch import subscription_loop
 from app.config import VERSION, get_settings
 from app.graph import get_graph
 from app.ingestion.pipeline import ensure_index_ready
 from app.models import HealthResponse
+from app.services import audit as audit_log
 from app.services import risk_store
 from app.services.graph_api import get_graph_api
 
 log = logging.getLogger(__name__)
+
+
+def _app_logging() -> None:
+    """Show LegacyLens INFO logs (roster, consent, capture) next to uvicorn's, without the
+    Azure SDKs' chatty request logs (those stay at the root logger's WARNING)."""
+    app_log = logging.getLogger("app")
+    if not app_log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+        app_log.addHandler(handler)
+        app_log.setLevel(logging.INFO)
+        app_log.propagate = False
+
+
+_app_logging()
 
 
 @asynccontextmanager
@@ -35,9 +51,11 @@ async def lifespan(app: FastAPI):
     except Exception:  # a bad dataset must not stop the API from booting
         log.exception("startup ingest failed; call POST /ingest to retry")
     watcher = _start_chat_watch()
+    audit_log.record("system.started", details={"version": VERSION, "live_m365": get_settings().live_m365})
     yield
     if watcher:
         watcher.cancel()
+    audit_log.get_audit_log().flush()
 
 
 def _start_chat_watch() -> Optional[asyncio.Task]:
@@ -79,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(ask.router)
     app.include_router(bot.router)
     app.include_router(webhooks.router)
+    app.include_router(audit.router)
     return app
 
 

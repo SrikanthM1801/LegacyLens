@@ -10,7 +10,7 @@ from app.agents.generator import generate_handover, generate_runbook
 from app.graph import get_graph
 from app.graph.queries import TOPIC_TYPES
 from app.models import Entity, EntityType, GeneratedDoc, HandoverRequest, RunbookRequest
-from app.services import doc_store, interview_store, risk_store
+from app.services import audit, doc_store, interview_store, risk_store
 from app.services.llm import get_llm
 from app.services.search import get_search
 
@@ -38,7 +38,7 @@ def runbook(req: RunbookRequest) -> GeneratedDoc:
     doc = generate_runbook(entity, get_graph(), get_search(), get_llm(), include_interviews=req.include_interviews)
     if doc is None:
         raise HTTPException(status_code=409, detail=f"No source material found for '{entity.name}'")
-    return doc_store.save(doc)
+    return _published(doc_store.save(doc), entity.name)
 
 
 @router.post("/artifacts/handover", response_model=GeneratedDoc)
@@ -56,7 +56,14 @@ def handover(req: HandoverRequest) -> GeneratedDoc:
     )
     if doc is None:
         raise HTTPException(status_code=409, detail=f"No captured knowledge found for '{person.name}'")
-    return doc_store.save(doc)
+    return _published(doc_store.save(doc), person.name)
+
+
+def _published(doc: GeneratedDoc, about: str) -> GeneratedDoc:
+    audit.record("artifact.generated", source="api", scope_type=getattr(doc.type, "value", doc.type), scope_id=doc.id, scope_name=about,
+                 item_ids=sorted({c.artifact_id for c in doc.citations}),
+                 details={"title": doc.title, "model": doc.model, "open_questions": len(doc.open_questions)})
+    return doc
 
 
 @router.get("/artifacts", response_model=list[GeneratedDoc])
