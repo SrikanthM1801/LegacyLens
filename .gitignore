@@ -23,3 +23,6 @@ frontend/.vite/
 .DS_Store
 .vscode/
 .idea/
+
+# Teams app package (built by scripts/build_teams_package.py)
+bot/build/

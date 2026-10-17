@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     chunk_size_chars: int = 900
     chunk_overlap_chars: int = 150
 
+    # --- Teams bot (Azure Bot Service, single-tenant Entra app) ------------
+    bot_app_id: str = ""
+    bot_app_password: str = ""
+    bot_app_tenant_id: str = ""
+    bot_app_type: str = "SingleTenant"
+    #: Public HTTPS base (dev tunnel / App Service); bot endpoint is <base>/api/messages.
+    public_base_url: str = ""
+
     # --- API --------------------------------------------------------------
     #: Comma-separated (CORS_ORIGINS=http://a,http://b). Kept as a plain string
     #: because pydantic-settings JSON-decodes list fields from env before validators run.

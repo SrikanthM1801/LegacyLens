@@ -1,17 +1,31 @@
-# bot/ — Teams "Project Copilot"
+# bot/ — LegacyLens Teams app
 
-**No bot code lives here yet** (by design for day 1). This folder documents how a
-Teams front end will call the existing backend API. Fleshed out in step 7.
+The Teams app is a thin client: a bot (Microsoft 365 Agents SDK, hosted inside the
+FastAPI app at `POST /api/messages`) that calls the existing backend endpoints.
+No business logic lives in the bot layer (Plan §6, §21).
 
-The backend is the only brain: the bot is a thin transport that forwards a user's
-question to `POST /ask` and renders `AskResponse.answer` plus its `citations`.
+## Contents
+- `manifest/manifest.template.json` — Teams manifest v1.29. `{{BOT_APP_ID}}` is filled at build time.
+  Bot scopes `personal`/`team`/`groupChat`; RSC `ChannelMessage.Read.Group` + `ChatMessage.Read.Chat`.
+- `manifest/color.png` (192×192), `manifest/outline.png` (32×32, white on transparent).
+- `build/LegacyLens.zip` — generated, gitignored.
 
-Two candidate paths, to be decided by whoever owns this module:
+## One-time setup (tenant admin)
+1. **Allow custom apps** — Teams admin center → Teams apps → Manage apps → Actions →
+   Org-wide app settings → *Custom apps* on; Setup policies → Global → *Upload custom apps* on.
+   Can take a few hours to apply.
+2. **Azure Bot** — portal → Create a resource → *Azure Bot*: resource group `rg-legacylens`,
+   handle `legacylens-bot`, pricing **F0**, type **Single Tenant**, *Create new Microsoft App ID*.
+   Then Configuration → copy App ID + Tenant ID; Manage → Certificates & secrets → new client
+   secret. Put them in `.env` as `BOT_APP_ID`, `BOT_APP_TENANT_ID`, `BOT_APP_PASSWORD`.
+   Channels → Microsoft Teams → Agree → Save.
+3. **Public endpoint** — `devtunnel create legacylens -a`, `devtunnel port create legacylens -p 8000`,
+   `devtunnel host legacylens`. Set `PUBLIC_BASE_URL` in `.env` and the bot's messaging endpoint
+   to `<PUBLIC_BASE_URL>/api/messages`.
 
-1. **Copilot Studio** — declarative agent with a custom connector / HTTP action
-   pointed at `POST /ask`; cheapest route to a working Teams experience.
-2. **Microsoft 365 Agents SDK** — a code-first bot (Node or .NET) that proxies
-   turn text to `POST /ask`; more control over cards and auth.
-
-Either way the backend contract is unchanged, so this can be built in parallel
-with everything else.
+## Build and install
+```bash
+.venv/bin/python scripts/build_teams_package.py   # -> bot/build/LegacyLens.zip
+```
+Teams → Apps → Manage your apps → **Upload an app** → *Upload a custom app* → pick the zip →
+**Add to a team** (choose the project channel). Bump `version` in the template before re-uploading.

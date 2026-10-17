@@ -1,0 +1,58 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.29/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.29",
+  "version": "1.0.0",
+  "id": "c0e23221-8df7-42a5-ae6d-122127e3cb7b",
+  "developer": {
+    "name": "LegacyLens Team",
+    "websiteUrl": "https://github.com/odl-user-2425473_clabs/LegacyLens",
+    "privacyUrl": "https://github.com/odl-user-2425473_clabs/LegacyLens#privacy",
+    "termsOfUseUrl": "https://github.com/odl-user-2425473_clabs/LegacyLens#terms"
+  },
+  "name": {
+    "short": "LegacyLens",
+    "full": "LegacyLens - project knowledge preservation"
+  },
+  "description": {
+    "short": "Finds single-person knowledge risks and captures them as cited runbooks.",
+    "full": "LegacyLens learns from the project conversations it is installed into (only after someone in the conversation clicks Allow), finds topics that only one person understands, interviews that person with evidence-grounded questions in a 1:1 chat, and publishes reviewed, cited runbooks and handover packs. Ask @LegacyLens a question and it answers from project history with citations. Message content is used only to build the project knowledge base, PII is redacted, nothing is published without the author's approval, and '@LegacyLens pause' stops ingestion for that conversation. Risk scores describe knowledge concentration, never individual performance."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#2B5BD7",
+  "supportsChannelFeatures": "tier1",
+  "bots": [
+    {
+      "botId": "{{BOT_APP_ID}}",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            { "title": "ask", "description": "Ask a question about the project, answered with citations" },
+            { "title": "risks", "description": "Show the top knowledge risks for this project" },
+            { "title": "pause", "description": "Stop LegacyLens learning from this conversation" }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": [],
+  "webApplicationInfo": {
+    "id": "{{BOT_APP_ID}}",
+    "resource": "https://RscBasedStoreApp"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        { "name": "ChannelMessage.Read.Group", "type": "Application" },
+        { "name": "ChatMessage.Read.Chat", "type": "Application" }
+      ]
+    }
+  }
+}
