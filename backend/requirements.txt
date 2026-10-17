@@ -1,10 +1,15 @@
 # LegacyLens backend — Python 3.11+
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-pydantic==2.10.3
+pydantic==2.10.6
 pydantic-settings==2.6.1
-python-dotenv==1.0.1
+python-dotenv==1.1.1
 networkx==3.4.2
+
+# Teams bot: Microsoft 365 Agents SDK (core + MSAL only; we host it with a thin
+# FastAPI shim instead of microsoft-agents-hosting-fastapi, which needs Starlette 1.x)
+microsoft-agents-hosting-core==1.8.0
+microsoft-agents-authentication-msal==1.8.0
 
 # Azure (only used when USE_MOCKS=false)
 openai==1.57.0

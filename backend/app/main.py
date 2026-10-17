@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import artifacts, ask, graph, ingest, interviews, people, risks
+from app.api import artifacts, ask, bot, graph, ingest, interviews, people, risks
 from app.config import VERSION, get_settings
 from app.graph import get_graph
 from app.ingestion.pipeline import ensure_index_ready
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(interviews.router)
     app.include_router(artifacts.router)
     app.include_router(ask.router)
+    app.include_router(bot.router)
     return app
 
 

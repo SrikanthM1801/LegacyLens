@@ -56,7 +56,12 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [ ] **T30 Documents page** — generate/view runbook & handover markdown with citations; download.
 
 ## Phase 8 — Teams
-- [ ] **T31 Teams Project Copilot** — Copilot Studio (preferred) or M365 Agents SDK calling `POST /ask`; document setup in `bot/README.md`. *Search the web for current setup steps.*
+- [x] **T31a Teams app package** — manifest v1.29 (bot, RSC, `supportsChannelFeatures: tier1`), icons, `scripts/build_teams_package.py`; uploaded to the org catalog and installed in *LegacyLensProject*.
+- [x] **T31b Bot endpoint** — `POST /api/messages` (M365 Agents SDK, single-tenant), `@LegacyLens <question>` → `/ask` with sources, `risks`, `pause`, `help`; offline tests via `expectReplies`.
+- [ ] **T31c Live in Teams** — dev tunnel + Azure Bot messaging endpoint; @mention answers in the channel.
+- [ ] **T31d Consent card + live capture** — Allow/Not now card on install, `ConsentRecord`, ingest channel messages after Allow, real `pause` (Plan §11.6).
+- [ ] **T31e Interviews in 1:1 chat** — Adaptive Cards, one question at a time, review & approve (Plan §11.3).
+- [ ] **T31f Dashboard as a Teams tab** — static tab in the manifest pointing at the React risks page.
 
 ## Phase 9 — Polish & demo
 - [ ] **T32 Demo hardening** — run `/demo-check`, cache demo responses, seed script for a one-command reset, backup recording plan.

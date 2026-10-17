@@ -23,6 +23,19 @@ No business logic lives in the bot layer (Plan §6, §21).
    `devtunnel host legacylens`. Set `PUBLIC_BASE_URL` in `.env` and the bot's messaging endpoint
    to `<PUBLIC_BASE_URL>/api/messages`.
 
+## Run the bot locally against Teams
+```bash
+cd backend && ../.venv/bin/uvicorn app.main:app --port 8000   # terminal 1
+devtunnel host legacylens                                     # terminal 2
+```
+Open `<PUBLIC_BASE_URL>/api/messages` in a browser: `{"status":"ok"}` means the tunnel reaches
+the bot. In the channel, try `@LegacyLens help`, `@LegacyLens risks`,
+`@LegacyLens How did Ravi usually handle gateway timeouts?`.
+
+Code: `backend/app/api/bot.py` (route), `backend/app/bot/agent.py` (SDK wiring, JWT check),
+`backend/app/bot/replies.py` (what the bot says; calls the Copilot and risk store). With no
+`BOT_APP_ID` the bot runs anonymously for tests and the Agents Playground only.
+
 ## Build and install
 ```bash
 .venv/bin/python scripts/build_teams_package.py   # -> bot/build/LegacyLens.zip
