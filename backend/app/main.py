@@ -10,14 +10,17 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.api import artifacts, ask, audit, bot, graph, ingest, interviews, people, risks, webhooks
+from app.api import artifacts, ask, audit, bot, dashboard, graph, ingest, interviews, people, risks, webhooks
 from app.bot.chat_watch import subscription_loop
 from app.config import VERSION, get_settings
 from app.graph import get_graph
 from app.ingestion.pipeline import ensure_index_ready
 from app.models import HealthResponse
 from app.services import audit as audit_log
+from app.services.audit_demo import seed_demo
+from app.services.consent_store import get_consent_store
 from app.services import risk_store
 from app.services.graph_api import get_graph_api
 
@@ -50,12 +53,25 @@ async def lifespan(app: FastAPI):
             await run_in_threadpool(risk_store.get_risks)  # warm the cache so the first GET /risks is instant
     except Exception:  # a bad dataset must not stop the API from booting
         log.exception("startup ingest failed; call POST /ingest to retry")
+    _seed_dashboard_demo()
     watcher = _start_chat_watch()
     audit_log.record("system.started", details={"version": VERSION, "live_m365": get_settings().live_m365})
     yield
     if watcher:
         watcher.cancel()
     audit_log.get_audit_log().flush()
+
+
+def _seed_dashboard_demo() -> None:
+    """DASHBOARD_DEMO=true (offline only): give the dashboard three weeks of generated activity."""
+    s = get_settings()
+    if not s.dashboard_demo or s.live_m365:
+        return
+    try:
+        n = seed_demo(audit_log.get_audit_log(), get_consent_store())
+        log.info("dashboard demo data loaded: %d audit events", n)
+    except Exception:
+        log.exception("could not load dashboard demo data")
 
 
 def _start_chat_watch() -> Optional[asyncio.Task]:
@@ -97,7 +113,10 @@ def create_app() -> FastAPI:
     app.include_router(ask.router)
     app.include_router(bot.router)
     app.include_router(webhooks.router)
+    if (settings.ui_dist_dir / "index.html").is_file():  # the dashboard, same origin as the API
+        app.mount("/app", StaticFiles(directory=settings.ui_dist_dir, html=True), name="dashboard-ui")
     app.include_router(audit.router)
+    app.include_router(dashboard.router)
     return app
 
 

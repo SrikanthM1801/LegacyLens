@@ -99,6 +99,20 @@ class Settings(BaseSettings):
     admin_api_key: str = ""
     azure_language_endpoint: str = ""
 
+    # --- Dashboard (org -> account -> project, over the audit trail) -----------
+    org_name: str = "Organisation"
+    #: Account used for projects without an entry in PROJECT_ACCOUNTS.
+    default_account_name: str = "Default account"
+    #: JSON object mapping a project (Teams team name or team id) to its client account,
+    #: e.g. {"Payments Platform": "Contoso", "Storefront": "Northwind"}. Blank = one default account.
+    project_accounts: str = ""
+    #: Offline only (LIVE_M365=false): fill the in-memory audit trail with deterministic demo data.
+    dashboard_demo: bool = False
+
+    #: The built dashboard (`npm run build` in frontend/). When it exists the backend serves it at /app,
+    #: so one public URL (e.g. the dev tunnel) gives the API and the UI together, with no CORS.
+    ui_dist_dir: Path = REPO_ROOT / "frontend" / "dist"
+
     # --- API --------------------------------------------------------------
     #: Comma-separated (CORS_ORIGINS=http://a,http://b). Kept as a plain string
     #: because pydantic-settings JSON-decodes list fields from env before validators run.
@@ -107,6 +121,17 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def account_by_project(self) -> dict[str, str]:
+        """PROJECT_ACCOUNTS parsed; keys lower-cased. A malformed value means 'no mapping', never a crash."""
+        import json
+
+        try:
+            raw = json.loads(self.project_accounts) if self.project_accounts.strip() else {}
+        except ValueError:
+            return {}
+        return {str(k).strip().lower(): str(v).strip() for k, v in raw.items()} if isinstance(raw, dict) else {}
 
     @property
     def org_domains(self) -> frozenset[str]:

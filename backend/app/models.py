@@ -470,6 +470,7 @@ class ConsentRecord(Base):
     status: Literal["pending", "granted", "declined", "paused"] = "pending"
     team_id: Optional[str] = None                  # Graph group id, for channels
     channel_id: Optional[str] = None               # Graph channel id, for channels
+    project_id: Optional[str] = None               # ProjectTeam.team_id this chat was matched to (dashboard roll-up)
     auto_installed: bool = False                   # we installed the app after detecting a project chat
     granted_by: Optional[str] = None               # display name of who clicked Allow / Not now
     granted_by_aad_id: Optional[str] = None
@@ -522,3 +523,142 @@ class AuditListResponse(Base):
     items: list[AuditEvent] = Field(default_factory=list)
     total: int = 0
     actions: list[str] = Field(default_factory=list)  # distinct actions in the window, for filters
+
+
+# ---------------------------------------------------------------------------
+# 11. Dashboard: org -> account -> project, aggregated from the audit trail
+# ---------------------------------------------------------------------------
+
+
+class HierarchyNode(Base):
+    """A node of org -> account -> project. Conversations (channels, group chats) belong to a project."""
+
+    level: Literal["org", "account", "project"]
+    id: str
+    name: str
+    conversations: int = 0                         # consent-tracked conversations at or below this node
+    children: list["HierarchyNode"] = Field(default_factory=list)
+
+
+class DashboardKpis(Base):
+    conversations_total: int = 0
+    conversations_granted: int = 0
+    conversations_pending: int = 0
+    conversations_declined: int = 0
+    conversations_paused: int = 0
+    messages_read: int = 0
+    messages_captured: int = 0
+    duplicates_skipped: int = 0
+    chunks_indexed: int = 0
+    questions_answered: int = 0
+    questions_unanswered: int = 0
+    questions_failed: int = 0
+    answer_rate: Optional[float] = None            # answered / (answered + unanswered)
+    avg_confidence: Optional[float] = None         # API questions only; the bot does not log it
+    avg_citations: Optional[float] = None
+    commands: int = 0                              # help / risks / pause replies
+    interviews_started: int = 0
+    interviews_answered: int = 0
+    interviews_approved: int = 0
+    documents_generated: int = 0
+    chats_detected: int = 0
+    failures: int = 0
+    security_events: int = 0
+
+
+class DailyActivity(Base):
+    date: str                                      # YYYY-MM-DD (UTC)
+    messages_captured: int = 0
+    questions: int = 0
+    consent_decisions: int = 0
+    failures: int = 0
+
+
+class CategoryCount(Base):
+    category: str
+    count: int
+    failures: int = 0
+
+
+class ConversationActivity(Base):
+    scope_id: str
+    name: str
+    type: str
+    status: str
+    project: str
+    messages_captured: int = 0
+    questions: int = 0
+    last_activity: Optional[datetime] = None
+
+
+class RiskImpact(Base):
+    """What one approved interview did to a risk score (org-level: the knowledge base is shared)."""
+
+    topic: str
+    approved_at: datetime
+    risk_before: float
+    risk_after: float
+
+
+class DashboardEvent(Base):
+    """An audit event with people removed: a role instead of a name, no authors, no message ids."""
+
+    id: str
+    timestamp: datetime
+    action: str
+    outcome: str
+    source: str
+    actor_role: Literal["member", "LegacyLens", "system"] = "system"
+    scope_type: Optional[str] = None
+    scope_name: Optional[str] = None
+    count: Optional[int] = None
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class GovernanceItem(Base):
+    """One thing LegacyLens keeps: what, where, whether it can contain project content, for how long."""
+
+    what: str
+    where: str
+    contains_content: bool
+    retention: str
+
+
+class DashboardSummary(Base):
+    #: Where the numbers come from. "azure" = the audit blobs and consent tables; "memory" = events recorded
+    #: by this process only (offline); "demo" = generated demo data (offline only). Never mixed.
+    data_source: Literal["azure", "memory", "demo"] = "memory"
+    scope: HierarchyNode                           # the selected node (children = drill-down)
+    since: datetime
+    until: datetime
+    generated_at: datetime = Field(default_factory=utcnow)
+    kpis: DashboardKpis = Field(default_factory=DashboardKpis)
+    redactions: dict[str, int] = Field(default_factory=dict)
+    consent_funnel: dict[str, Any] = Field(default_factory=dict)
+    activity: list[DailyActivity] = Field(default_factory=list)
+    by_category: list[CategoryCount] = Field(default_factory=list)
+    conversations: list[ConversationActivity] = Field(default_factory=list)
+    risk_impact: list[RiskImpact] = Field(default_factory=list)
+    recent_failures: list[DashboardEvent] = Field(default_factory=list)
+    governance: list[GovernanceItem] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class DashboardEventsResponse(Base):
+    items: list[DashboardEvent] = Field(default_factory=list)
+    total: int = 0
+    actions: list[str] = Field(default_factory=list)
+
+
+class ConsentRegisterRow(Base):
+    """One conversation's consent: the register an admin shows to prove nothing is read without 'Allow'."""
+
+    scope_id: str
+    name: str
+    type: str
+    status: str
+    approved_by: Optional[str] = None
+    updated_at: datetime
+    project: str
+    account: str
+    auto_installed: bool = False

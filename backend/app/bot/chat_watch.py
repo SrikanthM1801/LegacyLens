@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from typing import Optional
 
 from app.config import get_settings
 from app.models import ConsentRecord
@@ -50,6 +51,14 @@ def chat_ids_from_notification(payload: dict, client_state: str) -> list[str]:
     return out
 
 
+def matching_project(store: ConsentStore, member_aad_ids: list[str]) -> Optional[str]:
+    """team_id of the project whose roster overlaps this chat the most (ties: highest team id, for determinism)."""
+    ids = set(member_aad_ids)
+    overlaps = [(len(ids & set(p.member_aad_ids)), p.team_id) for p in store.projects()]
+    overlaps = [o for o in overlaps if o[0]]
+    return max(overlaps)[1] if overlaps else None
+
+
 async def handle_new_chat(chat_id: str, store: ConsentStore, graph: GraphService) -> str:
     """Returns what happened, for logs and tests: invited | not-group | not-project | known | error."""
     if store.get(chat_id):
@@ -69,7 +78,7 @@ async def handle_new_chat(chat_id: str, store: ConsentStore, graph: GraphService
         return "not-project"
     record = store.save(ConsentRecord(
         scope_id=chat.id, scope_type="chat", display_name=chat.topic or "Project group chat",
-        status="pending", auto_installed=True,
+        status="pending", auto_installed=True, project_id=matching_project(store, chat.member_aad_ids),
     ))
     try:
         await graph.install_app_in_chat(chat.id)

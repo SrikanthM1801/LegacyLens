@@ -173,9 +173,12 @@ async def refresh_project(context: TurnContext) -> None:
         return
     store = get_consent_store()
     before = next((p for p in await asyncio.to_thread(store.projects) if p.team_id == team["id"]), None)
+    # Teams puts the team name on install / member-change activities but not on ordinary messages, so a
+    # missing name must never overwrite one we already know.
+    name = team.get("name") or (before.name if before else "")
     await asyncio.to_thread(store.save_project, ProjectTeam(
-        team_id=team["id"], aad_group_id=team.get("aadGroupId"), name=team.get("name") or "",
-        member_aad_ids=member_ids,
+        team_id=team["id"], aad_group_id=team.get("aadGroupId") or (before.aad_group_id if before else None),
+        name=name, member_aad_ids=member_ids,
     ))
     if before is None or set(before.member_aad_ids) != set(member_ids):
         log.info("project roster updated: %d members", len(member_ids))

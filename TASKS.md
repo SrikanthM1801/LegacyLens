@@ -49,7 +49,7 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [x] **T25 `POST /ask`** — `agents/copilot.py`: hybrid retrieval + graph expansion, answer only from context, citations on every claim, "not enough info → suggest interview", person-centric queries.
 
 ## Phase 7 — Frontend (React + Vite + TS)
-- [ ] **T26 Scaffold + typed API client** — Vite app, one `api.ts`, types mirroring `models.py`, layout, loading/error components. Use `/ui-ux-pro-max:ui-ux-pro-max` for design.
+- [x] **T26 Scaffold + typed API client** — Vite app, one `api.ts`, types mirroring `models.py`, layout, loading/error components. Use `/ui-ux-pro-max:ui-ux-pro-max` for design.
 - [ ] **T27 Risks dashboard** — ranked table/heatmap, risk level colors, bus factor, coverage, evidence drawer.
 - [ ] **T28 Interview page** — start, one question at a time, evidence shown, answer, review & approve, live score change.
 - [ ] **T29 Ask page** — question box, cited answer, confidence, follow-ups.
@@ -64,10 +64,12 @@ Demo path (what matters most): **T12 ingest → T17 risks → T21 interview+appr
 - [ ] **T31h Azure AI Language PII** — replace/extend regex redaction with conversation PII + secret scanner before indexing.
 - [ ] **T31i Answer scoping** — filter search by the asker's conversations (`metadata.scope_id` + member ids).
 - [x] **T31k Audit trail** — every consent/detection/capture/answer/publish event appended to Azure Blob (`audit` container, hourly JSONL); `GET /audit` with filters + `X-Admin-Key`.
+- [x] **T31m Dashboard API** — `GET /dashboard/hierarchy|summary|events|consents`: org → client account → project roll-ups over the audit blobs + consent register; admin key; anonymised event view; deterministic demo data (`DASHBOARD_DEMO=true`).
+- [x] **T31n Dashboard UI** — React (Vite + TS), 28 tests, deep links `?tab=` `?theme=`; still to do: host it over HTTPS and point the manifest's static tab at it (T31f). Contents: scope selector (org/account/project), KPI cards, activity charts, consent funnel + register, "what is stored where" panel, anonymised audit trail.
 - [ ] **T31l Admin page** — Teams tab / React page over `GET /audit`: timeline, filters by category/conversation/person, consent overview, chat read history.
 - [ ] **T31j Meeting transcripts** — RSC `OnlineMeetingTranscript.Read.Chat`, ingest after consent.
 - [ ] **T31e Interviews in 1:1 chat** — Adaptive Cards, one question at a time, review & approve (Plan §11.3).
-- [ ] **T31f Dashboard as a Teams tab** — static tab in the manifest pointing at the React risks page.
+- [ ] **T31f Dashboard as a Teams tab** — the backend now serves the build at `<PUBLIC_BASE_URL>/app/`; still to do: add it as a `staticTabs` entry in the manifest, rebuild and re-upload the package, and decide on Teams sign-in instead of the admin key.
 
 ## Phase 9 — Polish & demo
 - [ ] **T32 Demo hardening** — run `/demo-check`, cache demo responses, seed script for a one-command reset, backup recording plan.

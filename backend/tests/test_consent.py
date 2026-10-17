@@ -200,3 +200,12 @@ def test_roster_reads_teams_objectId_field():
         turn_state = {"ConnectorClient": type("C", (), {"conversations": Conversations()})()}
 
     assert asyncio.run(REAL_FETCH_ROSTER(Ctx(), "t")) == ["aad-a", "aad-b"]
+
+
+def test_a_known_team_name_survives_activities_that_do_not_carry_it(client):
+    install(client, CHANNEL)                                    # install activity carries the team name
+    assert [p.name for p in get_consent_store().projects()] == ["LegacyLensProject"]
+    nameless = {"team": {"id": TEAM["id"], "aadGroupId": TEAM["aadGroupId"]}}   # what ordinary Teams activities send
+    turn(client, CHANNEL, type="conversationUpdate", membersAdded=[BOB], channelData=nameless)
+    [project] = get_consent_store().projects()
+    assert project.name == "LegacyLensProject" and project.aad_group_id == "group-1"
