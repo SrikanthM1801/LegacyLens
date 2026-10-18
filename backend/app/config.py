@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     sharepoint_site_url: str = ""
     #: How often to pull new / changed / deleted files from the site.
     sharepoint_sync_minutes: int = 5
+    #: Out-of-office checks for project members (MailboxSettings.Read) and how far ahead counts as "leaving".
+    departure_check_minutes: int = 15
+    departure_lookahead_days: int = 14
 
     # --- Dashboard (org -> account -> project, over the audit trail) -----------
     org_name: str = "Organisation"

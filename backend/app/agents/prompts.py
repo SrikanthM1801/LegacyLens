@@ -26,11 +26,15 @@ Rules:
   "PG" for the payment gateway), reuse its exact known name. Only add a new entity when it is not known.
 - For a decision, set decided_by to the person's name only if the artifact shows that person deciding
   or recommending; otherwise leave it null.
+- owners: the names of PEOPLE the artifact shows owning, leading, maintaining, being accountable or
+  responsible for, presenting, building or fixing this entity (for example an "Owner" or "A/R" column,
+  "X presented", "X fixed", "assigned to X"). Copy names exactly as written. Never put roles, teams or
+  companies here (not "Product Owner", "QA team", "NFSL"). Use [] when nobody is named.
 - Keep descriptions to one short sentence grounded in the artifact.
 - Do not report people, tools used incidentally, or generic words.
 
 Return JSON: {"entities": [{"name": str, "type": "system|process|decision|incident",
-"aliases": [str], "description": str, "decided_by": str|null}]}. Return {"entities": []} if none.
+"aliases": [str], "description": str, "decided_by": str|null, "owners": [str]}]}. Return {"entities": []} if none.
 """
 
 _MAX_ARTIFACT_CHARS = 6000

@@ -650,3 +650,17 @@ answer, `agents/assessor.py` scores each answer 0-5 against hidden expected poin
 candidate sees the result first, then a result card is posted to the project channel. Sessions:
 `knowledge/onboarding/sessions/<id>.json` (Blob); admin: `GET /onboarding/sessions[/{id}]`; audit category
 `onboarding.*`. Safeguards: see CLAUDE.md non-negotiable 7.
+
+### Departure prevention (18 Oct 2026)
+
+Detect -> capture -> prevent, using only SharePoint + Teams knowledge. Triggers: Outlook out-of-office
+for project members (polled every `DEPARTURE_CHECK_MINUTES`, window `DEPARTURE_LOOKAHEAD_DAYS`;
+`MailboxSettings.Read`, scopable to project members with Exchange RBAC for Applications), the person's own
+`@LegacyLens away until <date>` (guests have no mailbox here), or an owner's `@LegacyLens handover @Name`.
+LegacyLens finds the topics where the person holds >= 50% of the activity (people named in documents count:
+live extraction now records owners / deciders named in documents and chat authors, and an owner can
+`@LegacyLens link @User as <name in documents>`), posts an alert card in the project channel, interviews the
+person 1:1 with grounded questions (top 2 topics, 2 questions each), and on approval publishes the answers
+(risk recomputed, 🔴->🟢 card) and saves a cited handover pack as .docx to `LegacyLens Handover/` in the
+project SharePoint (write grant on the site). Records: `knowledge/departures/*.json`; admin `GET /departures`;
+audit `departure.detected | alert_posted | interview_started | answered | knowledge_published | handover_published`.

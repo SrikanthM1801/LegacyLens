@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
         except Exception:  # a bad dataset must not stop the API from booting
             log.exception("startup ingest failed; call POST /ingest to retry")
     _seed_dashboard_demo()
-    tasks = [t for t in (_start_chat_watch(), _start_live_sources()) if t]
+    tasks = [t for t in (_start_chat_watch(), _start_live_sources(), _start_departure_watch()) if t]
     audit_log.record("system.started", details={
         "version": VERSION, "live_m365": s.live_m365, "sample_data": s.use_sample_data,
         "sharepoint": bool(s.sharepoint_site_url)})
@@ -64,6 +64,15 @@ async def lifespan(app: FastAPI):
     for t in tasks:
         t.cancel()
     audit_log.get_audit_log().flush()
+
+
+def _start_departure_watch() -> Optional[asyncio.Task]:
+    """Poll project members' Outlook out-of-office and start handovers (live Microsoft 365 only)."""
+    if not get_settings().live_m365:
+        return None
+    from app.bot.departure import ooo_loop
+
+    return asyncio.create_task(ooo_loop())
 
 
 def _start_live_sources() -> Optional[asyncio.Task]:

@@ -147,6 +147,10 @@ class _PeopleIndex:
     def resolve(self, name_or_email: str) -> Optional[str]:
         return self.by_key.get(name_or_email.strip().lower())
 
+    def add(self, name: str, person_id: str) -> None:
+        for k in (name, name.split()[0]):
+            self.by_key.setdefault(k.strip().lower(), person_id)
+
 
 def parse_messages(a: Artifact, people: _PeopleIndex) -> list[tuple[Optional[str], str]]:
     """Split a thread artifact into (person_id, text) messages. Others: one message by the author."""
@@ -304,10 +308,28 @@ class LLMEntity(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     description: str = ""
     decided_by: Optional[str] = None
+    owners: list[str] = Field(default_factory=list)
 
 
 class LLMExtraction(BaseModel):
     entities: list[LLMEntity] = Field(default_factory=list)
+
+
+_NOT_A_PERSON = re.compile(r"\b(team|owner|board|committee|manager|lead|engineer|admin|group|department|vendor|"
+                           r"client|sponsor|steerco|pmo|qa|l&d|nfsl|pspl|presidio|ltd|limited|inc)\b|\d", re.IGNORECASE)
+
+
+def _named_person(name: str, acc: "_Acc", index: _PeopleIndex) -> Optional[str]:
+    """A person named in a live document or chat who isn't a known Teams user yet (e.g. 'Dinesh Udhyakumar')."""
+    name = " ".join(name.replace("(", " ").replace(")", " ").split())
+    if not name or len(name) > 40 or _NOT_A_PERSON.search(name) or not name[0].isupper():
+        return None
+    pid = "person_doc_" + _slug(name)
+    if pid not in acc.entities:
+        acc.entity(Entity(id=pid, type=EntityType.PERSON, name=name, aliases=[name.split()[0]],
+                          attributes={"source": "documents"}))
+    index.add(name, pid)
+    return pid
 
 
 def _slug(name: str) -> str:
@@ -379,10 +401,27 @@ class LLMExtractor:
         acc.seen(eid, a.id)
         if not acc.has_edge(a.id, eid, RelationType.MENTIONS):  # don't double count what rules found
             acc.edge(a.id, eid, RelationType.MENTIONS, a.id)
+        live = bool(a.metadata.get("live"))
         if item.decided_by and acc.entities[eid].type == EntityType.DECISION:
-            who = index.resolve(item.decided_by)
+            who = index.resolve(item.decided_by) or (_named_person(item.decided_by, acc, index) if live else None)
             if who:
                 acc.edge(who, eid, RelationType.DECIDED, a.id)
+        if live:
+            self._link_live(item, eid, a, acc, index)
+
+    @staticmethod
+    def _link_live(item: LLMEntity, eid: str, a: Artifact, acc: _Acc, index: _PeopleIndex) -> None:
+        """Live data has no topic catalog, so who-knows-what comes from the LLM's reading:
+        people named as owners/fixers PARTICIPATED_IN the topic; a chat or email author DISCUSSED it;
+        a live document DOCUMENTS what it discusses (coverage + its author's AUTHORED_DOC credit)."""
+        for name in item.owners[:5]:
+            who = index.resolve(name) or _named_person(name, acc, index)
+            if who:
+                acc.edge(who, eid, RelationType.PARTICIPATED_IN, a.id, weight=1.5)
+        if a.type in (ArtifactType.CHAT, ArtifactType.EMAIL) and a.author in acc.entities:
+            acc.edge(a.author, eid, RelationType.DISCUSSED, a.id)
+        if a.type == ArtifactType.DOC and acc.entities[eid].type != EntityType.INCIDENT:
+            acc.edge(eid, a.id, RelationType.DOCUMENTED_BY, a.id)
 
 
 @lru_cache

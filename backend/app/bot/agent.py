@@ -43,7 +43,7 @@ from microsoft_agents.hosting.core.authorization.jwt import _authorize_request
 
 from microsoft_agents.activity import Activity, Attachment
 
-from app.bot import consent, onboarding, replies
+from app.bot import consent, departure, onboarding, replies
 from app.bot.capture import LiveMessage, capture
 from app.config import Settings, get_settings
 from app.models import ConsentRecord, ProjectTeam
@@ -190,21 +190,20 @@ def _identifiers(activity) -> list[str]:
     return [i for i in dict.fromkeys(f.lower() for f in found) if i != bot_upn]
 
 
-async def handle_assign(context: TurnContext) -> None:
+async def resolve_target(context: TurnContext) -> tuple[Optional[str], str]:
+    """The person a command is about: an @mentioned team member, else an email / UPN / contact card."""
     activity = context.activity
     team = _channel_data(activity).get("team") or {}
     bot_id = activity.recipient.id if activity.recipient else None
     target = next((m.mentioned for m in TurnContext.get_mentions(activity)
                    if m.mentioned and m.mentioned.id != bot_id), None)
-    candidate_aad, candidate_name = None, (target.name if target else "") or ""
+    aad, name = None, (target.name if target else "") or ""
     if target and team.get("id"):
         try:
-            candidate_aad = await resolve_member_aad(context, team["id"], target.id)
+            aad = await resolve_member_aad(context, team["id"], target.id)
         except Exception as e:
-            log.warning("could not resolve the assigned member: %s", type(e).__name__)
-    if not candidate_aad:  # not a team member: an email, UPN or shared contact card instead of an @mention
-        log.info("assign without a team mention; attachments=%s entities=%s",
-                 [a.content_type for a in activity.attachments or []], [e.type for e in activity.entities or []])
+            log.warning("could not resolve the mentioned member: %s", type(e).__name__)
+    if not aad:
         for ident in _identifiers(activity):
             try:
                 found = await get_graph_api().find_user(ident)
@@ -212,8 +211,98 @@ async def handle_assign(context: TurnContext) -> None:
                 log.warning("user lookup failed: %s", type(e).__name__)
                 found = None
             if found:
-                candidate_aad, candidate_name = found
-                break
+                return found
+    return aad, name
+
+
+async def _is_owner(activity) -> bool:
+    team = _channel_data(activity).get("team") or {}
+    who = activity.from_property
+    try:
+        return bool(who and who.aad_object_id in await get_graph_api().team_owner_ids(team.get("aadGroupId") or ""))
+    except Exception as e:
+        log.warning("owner check failed: %s", type(e).__name__)
+        return False
+
+
+async def handle_departure_command(context: TurnContext, command: str, text: str) -> None:
+    """away until <date> (anyone, for themselves) / handover @Name and link @Name as <document name> (owners)."""
+    activity = context.activity
+    who = activity.from_property
+    scope_id, kind = scope_of(activity)
+    channel_id = scope_id if kind == "channel" else None
+    if command.startswith("away"):
+        until = departure.parse_until(text)
+        try:
+            await context.send_activity(Activity(type="typing"))
+        except Exception:
+            pass
+        _, reply = await departure.start(
+            aad_id=who.aad_object_id, name=who.name or "", source="self", starts_at=datetime.now(timezone.utc),
+            ends_at=until, triggered_by=who.name, channel_id=channel_id, service_url=activity.service_url or "",
+            tenant_id=activity.conversation.tenant_id)
+        await context.send_activity(reply)
+        return
+    if not await _is_owner(activity):
+        await context.send_activity("Only a team owner can do that.")
+        return
+    aad, name = await resolve_target(context)
+    if not aad:
+        await context.send_activity("Mention the person (or type their email), e.g. **@LegacyLens handover @Name**.")
+        return
+    if command.startswith("link"):
+        m = re.search(r"\bas\s+(.+)$", TurnContext.remove_recipient_mention(activity) or "", re.IGNORECASE)
+        doc_name = re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
+        if not doc_name:
+            await context.send_activity("Say who they are in the documents, e.g. **@LegacyLens link @Name as Dinesh Udhyakumar**.")
+            return
+        _, reply = await asyncio.to_thread(departure.link_person, aad, name, doc_name, who.name or "")
+        await context.send_activity(reply)
+        return
+    try:
+        await context.send_activity(Activity(type="typing"))
+    except Exception:
+        pass
+    _, reply = await departure.start(
+        aad_id=aad, name=name, source="owner", starts_at=datetime.now(timezone.utc), ends_at=departure.parse_until(text),
+        triggered_by=who.name, channel_id=channel_id, service_url=activity.service_url or "",
+        tenant_id=activity.conversation.tenant_id)
+    await context.send_activity(reply)
+
+
+async def handle_personal_departure(context: TurnContext, command: str, text: str) -> bool:
+    """Handover interview answers and approval in the departing person's 1:1 chat."""
+    activity = context.activity
+    value = activity.value if isinstance(activity.value, dict) else {}
+    verb = value.get("verb")
+    d = await asyncio.to_thread(departure.active_for, activity.from_property.aad_object_id or "")
+    if d is None and verb not in (departure.ANSWER_VERB, departure.APPROVE_VERB):
+        return False
+    if d is None:
+        await context.send_activity("This handover is no longer open.")
+        return True
+    if verb == departure.APPROVE_VERB:
+        try:
+            await context.send_activity(Activity(type="typing"))
+        except Exception:
+            pass
+        await context.send_activity(await departure.approve(d))
+        return True
+    if verb == departure.ANSWER_VERB or (d.status == "interviewing" and command not in replies.COMMANDS
+                                         and not command.startswith(("ask ", "runbook "))):
+        card, reply = await asyncio.to_thread(departure.answer, d, value.get("session_id"), value.get("question_id"),
+                                              value.get("answer") if value else text)
+        await context.send_activity(reply)
+        if card:
+            await context.send_activity(_card(card))
+        return True
+    return False
+
+
+async def handle_assign(context: TurnContext) -> None:
+    activity = context.activity
+    team = _channel_data(activity).get("team") or {}
+    candidate_aad, candidate_name = await resolve_target(context)
     who = activity.from_property
     reply = await onboarding.assign(
         owner_aad=who.aad_object_id if who else None, owner_name=(who.name if who else "") or "",
@@ -427,6 +516,10 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
         if kind == "personal" and isinstance(activity.value, dict) and activity.value.get("verb") == onboarding.ANSWER_VERB:
             await handle_personal_onboarding(context, "", "")
             return
+        if kind == "personal" and isinstance(activity.value, dict) and activity.value.get("verb") in (
+                departure.ANSWER_VERB, departure.APPROVE_VERB):
+            await handle_personal_departure(context, "", "")
+            return
         if kind != "personal" and not _mentions_bot(activity):
             # Not addressed to us: learn from it only if this conversation said yes.
             if await asyncio.to_thread(is_granted, get_consent_store(), scope_id):
@@ -439,7 +532,12 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
         if kind == "channel" and command.startswith("assign"):
             await handle_assign(context)
             return
+        if command.startswith("away") or (kind == "channel" and command.startswith(("handover", "link "))):
+            await handle_departure_command(context, command, text)
+            return
         if kind == "personal" and await handle_personal_onboarding(context, command, text):
+            return
+        if kind == "personal" and await handle_personal_departure(context, command, text):
             return
         if kind != "personal" and command in ("pause", "stop"):
             store = get_consent_store()

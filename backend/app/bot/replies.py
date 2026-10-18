@@ -28,6 +28,9 @@ WELCOME = (
     "- **@LegacyLens topics** — what I know about (systems, processes, decisions)\n"
     "- **@LegacyLens runbook** *topic* — a cited runbook for one topic\n"
     "- **@LegacyLens status** — whether I'm learning here, and what's in my knowledge\n"
+    "- **@LegacyLens away** until *date* — going on leave? I'll capture what only you know first\n"
+    "- **@LegacyLens handover** *@Name* — team owners: start a handover for someone leaving\n"
+    "- **@LegacyLens link** *@Name* **as** *name in documents* — team owners: connect a person to the documents\n"
     "- **@LegacyLens assign** *@Name* — team owners: onboard a member (they learn with me 1:1, then take a 2-question assessment)\n"
     "- **start** — in your 1:1 onboarding chat: begin your assessment\n"
     "- **@LegacyLens pause** / **resume** — stop learning from this conversation / ask again\n"
@@ -36,7 +39,7 @@ WELCOME = (
 
 #: One-word commands answered without the LLM (no typing indicator needed).
 COMMANDS = frozenset({"", "help", "hi", "hello", "risks", "risk", "top risks", "topics", "topic",
-                      "runbook", "ask", "pause", "stop", "resume", "status", "start", "assign"})
+                      "runbook", "ask", "pause", "stop", "resume", "status", "start", "assign", "away", "handover", "link"})
 
 MAX_TOPICS_SHOWN = 15
 MAX_REPLY_CHARS = 20_000

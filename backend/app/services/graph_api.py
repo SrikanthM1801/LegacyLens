@@ -13,6 +13,9 @@ Onboarding (bot/onboarding.py): TeamMember.Read.All (is the sender a team owner?
 User.ReadBasic.All (find a candidate by email / UPN, e.g. someone not yet on the team) and
 TeamsAppInstallation.ReadWriteAndConsentSelfForUser.All (install LegacyLens for the candidate so it can open
 a 1:1; the "AndConsent" variant is required because the app declares resource-specific permissions).
+Departures (bot/departure.py): MailboxSettings.Read (out-of-office; can be scoped to project members with
+Exchange RBAC for Applications) and write access to the project site (Sites.Selected "write" grant) to save
+handover packs. Guests have no mailbox here, so they use `@LegacyLens away until <date>` instead.
 SharePoint (ingestion/sharepoint.py): Sites.Selected + a read grant on the project site only
 (or Sites.Read.All) — resolve the site, list its document libraries, read the drive delta, download.
 Message reads use the RSC grants (ChatMessage.Read.Chat / ChannelMessage.Read.Group) the
@@ -27,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any, Optional, Protocol
+from urllib.parse import quote
 
 import httpx
 
@@ -83,6 +87,8 @@ class GraphService(Protocol):
     async def team_owner_ids(self, group_id: str) -> set[str]: ...
     async def install_app_for_user(self, user_aad_id: str) -> None: ...
     async def find_user(self, identifier: str) -> Optional[tuple[str, str]]: ...
+    async def automatic_replies(self, user_aad_id: str) -> Optional[dict]: ...
+    async def upload_to_site(self, site_url: str, path: str, data: bytes) -> str: ...
     async def resolve_site(self, site_url: str) -> SiteInfo: ...
     async def list_drives(self, site_id: str) -> list[tuple[str, str]]: ...
     async def drive_delta(self, drive_id: str, delta_link: Optional[str]) -> tuple[list[dict], str]: ...
@@ -222,6 +228,28 @@ class AzureGraph:
         hit = (d.get("value") or [None])[0]
         return (hit["id"], hit.get("displayName") or ident) if hit else None
 
+    async def automatic_replies(self, user_aad_id: str) -> Optional[dict]:
+        """Outlook automatic-replies setting, or None for users without a mailbox here (e.g. guests)."""
+        try:
+            return await self._call("GET", f"/users/{user_aad_id}/mailboxSettings/automaticRepliesSetting",
+                                    "read out-of-office")
+        except GraphError as e:
+            if e.status in (400, 404):
+                return None
+            raise
+
+    async def upload_to_site(self, site_url: str, path: str, data: bytes) -> str:
+        """Save a file (< 4 MB) into the site's default library at `path`; returns its web URL."""
+        site = await self.resolve_site(site_url)
+        headers = {"Authorization": f"Bearer {await self._token()}", "Content-Type": "application/octet-stream"}
+        url = f"{GRAPH}/sites/{site.id}/drive/root:/{quote(path)}:/content"
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            r = await client.put(url, headers=headers, content=data)
+        if r.status_code >= 400:
+            log.warning("Graph upload file -> %s", r.status_code)
+            raise GraphError(r.status_code, "upload file")
+        return r.json().get("webUrl", "")
+
     async def resolve_site(self, site_url: str) -> SiteInfo:
         """https://contoso.sharepoint.com/sites/Project -> site id; a raw site id is accepted too."""
         if "://" not in site_url:
@@ -299,6 +327,8 @@ class MockGraph:
         self.owners: dict[str, set[str]] = {}       # group id -> owner aad ids
         self.user_installs: set[str] = set()
         self.users: dict[str, tuple[str, str]] = {}    # email / upn / id -> (aad id, name)
+        self.ooo: dict[str, dict] = {}                   # aad id -> automaticRepliesSetting
+        self.uploads: dict[str, bytes] = {}              # path -> bytes
 
     async def get_chat(self, chat_id: str) -> ChatInfo:
         if chat_id not in self.chats:
@@ -329,6 +359,13 @@ class MockGraph:
 
     async def find_user(self, identifier: str) -> Optional[tuple[str, str]]:
         return self.users.get(identifier.strip().lower())
+
+    async def automatic_replies(self, user_aad_id: str) -> Optional[dict]:
+        return self.ooo.get(user_aad_id)
+
+    async def upload_to_site(self, site_url: str, path: str, data: bytes) -> str:
+        self.uploads[path] = data
+        return f"https://contoso.sharepoint.com/sites/p/Shared%20Documents/{quote(path)}"
 
     # --- SharePoint ------------------------------------------------------------
     def add_site(self, url: str, site_id: str, name: str, drive_id: str = "drive-1") -> None:

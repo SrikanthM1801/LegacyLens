@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Header, HTTPException
 
 from app.api.audit import require_admin
-from app.models import OnboardingSession
+from app.models import Departure, OnboardingSession
 from app.services.onboarding_store import get_onboarding_store
 
 router = APIRouter(tags=["onboarding"])
@@ -28,3 +28,11 @@ def get_session(session_id: str, x_admin_key: Optional[str] = Header(None)) -> O
     if s is None:
         raise HTTPException(status_code=404, detail=f"Unknown onboarding session '{session_id}'")
     return s
+
+
+@router.get("/departures", response_model=list[Departure])
+def list_departures(x_admin_key: Optional[str] = Header(None)) -> list[Departure]:
+    """Departure alerts: who, why (out-of-office / self / owner), topics at risk, risk before -> after, handover link."""
+    require_admin(x_admin_key)
+    from app.bot.departure import departures
+    return sorted(departures().list(), key=lambda d: d.detected_at, reverse=True)

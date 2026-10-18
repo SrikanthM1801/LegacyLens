@@ -199,6 +199,9 @@ def generate_questions(
         entity, graph, search, limit=EVIDENCE_FOR_INTERVIEW, snippet_chars=EVIDENCE_SNIPPET_CHARS,
         types=EVIDENCE_TYPES,
     )
+    if not evidence:  # a topic known only from documents (e.g. SharePoint): ask about what they say
+        evidence = collect_evidence(entity, graph, search, limit=EVIDENCE_FOR_INTERVIEW,
+                                    snippet_chars=EVIDENCE_SNIPPET_CHARS, types=["doc", "chat"])
     if not evidence:
         return []
     # Conversations carry the reasoning; tickets are terse. Keep relevance order within each group.

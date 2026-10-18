@@ -872,3 +872,55 @@ class OnboardingSession(Base):
     evaluation: Optional[AssessmentEvaluation] = None
     posted_at: Optional[datetime] = None
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# 14. Departure prevention: out-of-office / leaving -> alert, expert interview, handover pack
+# ---------------------------------------------------------------------------
+
+
+class AtRiskTopic(Base):
+    """A topic the departing person holds most of the knowledge for."""
+
+    risk_id: str
+    entity_id: str
+    topic: str
+    share: float                                   # 0..1 of the topic's activity that is theirs
+    risk_score: float
+    risk_level: Literal["high", "medium", "low"] = "low"
+    coverage: float = 0.0
+    risk_after: Optional[float] = None             # after the approved interview
+    level_after: Optional[Literal["high", "medium", "low"]] = None
+
+
+class PersonLink(Base):
+    """A Teams / Entra user who appears in documents under another name (e.g. 'Dinesh Udhyakumar')."""
+
+    aad_id: str
+    display_name: str
+    person_ids: list[str] = Field(default_factory=list)   # graph person ids that are this human
+    linked_by: Optional[str] = None
+    linked_at: datetime = Field(default_factory=utcnow)
+
+
+class Departure(Base):
+    id: str = Field(default_factory=lambda: new_id("dep"))
+    person_aad_id: str
+    person_name: str
+    person_ids: list[str] = Field(default_factory=list)
+    source: Literal["out_of_office", "self", "owner"]
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    detected_at: datetime = Field(default_factory=utcnow)
+    triggered_by: Optional[str] = None
+    channel_id: Optional[str] = None
+    service_url: str = ""
+    tenant_id: Optional[str] = None
+    conversation_id: Optional[str] = None          # 1:1 chat with the departing person
+    status: Literal["alerted", "interviewing", "reviewing", "completed", "no_risk", "cancelled"] = "alerted"
+    at_risk: list[AtRiskTopic] = Field(default_factory=list)
+    session_ids: list[str] = Field(default_factory=list)   # InterviewSession ids, one per topic
+    interviewee_id: Optional[str] = None           # graph person id answers are attributed to
+    handover_doc_id: Optional[str] = None
+    handover_url: Optional[str] = None
+    error: Optional[str] = None
