@@ -28,6 +28,7 @@ WELCOME = (
     "- **@LegacyLens topics** — what I know about (systems, processes, decisions)\n"
     "- **@LegacyLens runbook** *topic* — a cited runbook for one topic\n"
     "- **@LegacyLens status** — whether I'm learning here, and what's in my knowledge\n"
+    "- **@LegacyLens admin** *[risks | handovers | documents | topic]* — open the admin dashboard (needs the admin key)\n"
     "- **@LegacyLens away** until *date* — going on leave? I'll capture what only you know first\n"
     "- **@LegacyLens handover** *@Name* — team owners: start a handover for someone leaving\n"
     "- **@LegacyLens link** *@Name* **as** *name in documents* — team owners: connect a person to the documents\n"
@@ -39,7 +40,8 @@ WELCOME = (
 
 #: One-word commands answered without the LLM (no typing indicator needed).
 COMMANDS = frozenset({"", "help", "hi", "hello", "risks", "risk", "top risks", "topics", "topic",
-                      "runbook", "ask", "pause", "stop", "resume", "status", "start", "assign", "away", "handover", "link"})
+                      "runbook", "ask", "pause", "stop", "resume", "status", "start", "assign", "away", "handover", "link",
+                      "admin", "dashboard"})
 
 MAX_TOPICS_SHOWN = 15
 MAX_REPLY_CHARS = 20_000
@@ -178,3 +180,78 @@ def format_risks(items: list[RiskItem]) -> str:
             f"{r.coverage_score:.0%} documented"
         )
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# @LegacyLens admin: a card that opens the dashboard
+# ---------------------------------------------------------------------------
+
+DASHBOARD_WORDS = ("admin", "dashboard")
+#: Words after "admin" that open a dashboard tab directly.
+DASHBOARD_TABS = {
+    "overview": "overview", "risks": "risks", "risk": "risks", "interviews": "interviews", "handovers": "interviews",
+    "handover": "interviews", "documents": "documents", "docs": "documents", "runbooks": "documents",
+    "sources": "sources", "files": "sources", "onboarding": "onboarding", "consent": "consent", "audit": "audit",
+}
+
+
+def is_dashboard_command(command: str) -> bool:
+    return command.split(" ", 1)[0] in DASHBOARD_WORDS
+
+
+def dashboard_url(base_url: str, **params: str) -> str:
+    """The dashboard the backend serves at /app on the same public URL as the bot (the dev tunnel)."""
+    from urllib.parse import urlencode
+
+    base = (base_url or "http://localhost:8000").rstrip("/")
+    query = urlencode({k: v for k, v in params.items() if v})
+    return f"{base}/app/" + (f"?{query}" if query else "")
+
+
+def dashboard_reply(command: str, base_url: str) -> tuple[dict, str]:
+    """(adaptive card, plain-text fallback) for `admin [tab | topic]`. Counts by topic only, never people."""
+    rest = command.split(" ", 1)[1].strip() if " " in command else ""
+    params: dict[str, str] = {}
+    focus = ""
+    cached = risk_store.peek()  # never wait for a recompute (up to a minute against Azure)
+    risks = cached.items if cached else []
+    if rest in DASHBOARD_TABS:
+        params["tab"] = DASHBOARD_TABS[rest]
+    elif rest:
+        wanted = rest.lower()
+        hit = next((r for r in risks if wanted in r.topic.lower()), None)
+        if hit:
+            params, focus = {"tab": "risks", "risk": hit.id}, hit.topic
+    url = dashboard_url(base_url, **params)
+
+    high = sum(r.risk_level == "high" for r in risks)
+    single = sum(r.bus_factor <= 1 for r in risks)
+    title = f"Open {focus} in the dashboard" if focus else "LegacyLens admin dashboard"
+    if rest and not params:
+        note = (f"I don't know a topic called *{rest}*, so this opens the overview. " if cached
+                else "Risk scores are still being computed, so this opens the overview. ")
+    else:
+        note = ""
+    facts = [
+        {"title": "Topics at high risk", "value": str(high)},
+        {"title": "Known by one person", "value": str(single)},
+        {"title": "Topics tracked", "value": str(len(risks))},
+    ] if cached else [{"title": "Risk scores", "value": "being computed, ready in about a minute"}]
+    card = {
+        "type": "AdaptiveCard", "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "version": "1.5",
+        "fallbackText": f"LegacyLens dashboard: {url}",
+        "body": [
+            {"type": "TextBlock", "text": "📊 " + title, "weight": "Bolder", "size": "Medium", "wrap": True},
+            {"type": "TextBlock", "wrap": True, "isSubtle": True, "text": note + (
+                "Knowledge risks per topic with their evidence, interviews and handovers, generated documents, "
+                "SharePoint sources, consent and the audit trail. The admin key (ADMIN_API_KEY) is asked for once per browser.")},
+            {"type": "FactSet", "facts": facts},
+        ],
+        "actions": [
+            {"type": "Action.OpenUrl", "title": "Open dashboard", "url": url},
+            {"type": "Action.OpenUrl", "title": "Knowledge risks", "url": dashboard_url(base_url, tab="risks")},
+            {"type": "Action.OpenUrl", "title": "Handovers", "url": dashboard_url(base_url, tab="interviews")},
+            {"type": "Action.OpenUrl", "title": "Documents", "url": dashboard_url(base_url, tab="documents")},
+        ],
+    }
+    return card, f"{note}📊 [Open the LegacyLens dashboard]({url})"

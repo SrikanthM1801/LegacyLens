@@ -28,20 +28,41 @@ export function useAsync<T>(fn: (signal: AbortSignal) => Promise<T>, deps: unkno
 
 const KEY = "legacylens.adminKey";
 
-/** The admin key lives in sessionStorage only (gone when the tab closes); storage may be blocked, so it is optional. */
+/**
+ * A key passed in the link as `#key=...` (a fragment is never sent to the server, the tunnel or their logs).
+ * It is taken once, then removed from the address bar so it is not bookmarked or shared by accident.
+ */
+function keyFromLink(): string {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const k = params.get("key")?.trim() ?? "";
+  if (k) {
+    params.delete("key");
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + window.location.search + (rest ? `#${rest}` : ""));
+  }
+  return k;
+}
+
+/**
+ * The admin key is remembered in this browser (localStorage), so links from the Teams `@LegacyLens admin` card,
+ * which open a new tab, go straight in. "Forget key" removes it. Storage may be blocked, so it is optional.
+ */
 export function useAdminKey(): [string, (k: string) => void] {
   const [key, setKey] = useState<string>(() => {
+    const linked = keyFromLink();
     try {
-      return sessionStorage.getItem(KEY) ?? "";
+      if (linked) localStorage.setItem(KEY, linked);
+      return linked || (localStorage.getItem(KEY) ?? "");
     } catch {
-      return "";
+      return linked;
     }
   });
   const update = (k: string) => {
     setKey(k);
     try {
-      if (k) sessionStorage.setItem(KEY, k);
-      else sessionStorage.removeItem(KEY);
+      if (k) localStorage.setItem(KEY, k);
+      else localStorage.removeItem(KEY);
+      sessionStorage.removeItem(KEY); // where older builds kept it
     } catch {
       /* storage unavailable: the key just lasts for this page view */
     }

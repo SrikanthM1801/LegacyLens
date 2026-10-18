@@ -14,6 +14,7 @@ Scoring helpers are pure; only `analyze_risks` touches the graph and search.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -27,6 +28,8 @@ from app.models import ArtifactType, Citation, DocType, EntityType, RiskItem
 BUS_FACTOR_MIN_SHARE = 0.15
 #: One person holding at least this share makes the topic a single-person risk.
 SINGLE_PERSON_SHARE = 0.70
+#: Parallel topic lookups during risk analysis (each is two search round trips).
+SEARCH_WORKERS = 8
 
 
 @dataclass(frozen=True)
@@ -148,10 +151,19 @@ def analyze_risks(graph: GraphStore, search, as_of: Optional[datetime] = None) -
     stats = compute_topic_stats(graph, as_of)
     norm = normalize_activity(stats)
     people = {e.id: e for e in graph.entities(EntityType.PERSON)}
-    items = []
-    for s in stats:
+
+    def searched(s: TopicStats):
+        """The two network-bound lookups for one topic (coverage and evidence)."""
         entity = graph.get_entity(s.topic_id)
-        cov = compute_coverage(entity, graph, search)
+        return compute_coverage(entity, graph, search), collect_evidence(entity, graph, search)
+
+    # Each topic costs two search round trips; against Azure, doing them one after another took over a
+    # minute for ~50 topics. Threads overlap the waits; results are sorted below, so order is unchanged.
+    with ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as pool:
+        looked_up = list(pool.map(searched, stats))
+
+    items = []
+    for s, (cov, evidence) in zip(stats, looked_up):
         top = people.get(s.top_owner)
         departing = bool(top and top.attributes.get("is_departing"))
         score = risk_score(norm[s.topic_id], s.bus_factor, cov.score, departing)
@@ -176,6 +188,6 @@ def analyze_risks(graph: GraphStore, search, as_of: Optional[datetime] = None) -
             risk_score=score,
             risk_level=risk_level(score),
             missing_doc_types=missing,
-            evidence=collect_evidence(entity, graph, search),
+            evidence=evidence,
         ))
     return sorted(items, key=lambda r: (-r.risk_score, -r.activity_score, r.id))

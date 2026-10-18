@@ -23,7 +23,7 @@ function mockApi(opts: { requireKey?: string; summary?: Parameters<typeof makeSu
   return calls;
 }
 
-beforeEach(() => { sessionStorage.clear(); window.history.replaceState({}, "", "/"); });
+beforeEach(() => { sessionStorage.clear(); localStorage.clear(); window.history.replaceState({}, "", "/"); });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("App", () => {
@@ -97,11 +97,10 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open dashboard" }));
     expect(await screen.findByText("Conversations allowed")).toBeInTheDocument();
     expect(calls.at(-1)!.key).toBe("k3y");
-    expect(sessionStorage.getItem("legacylens.adminKey")).toBe("k3y");
-    expect(localStorage.getItem("legacylens.adminKey")).toBeNull();
+    expect(localStorage.getItem("legacylens.adminKey")).toBe("k3y");
     await user.click(screen.getByRole("button", { name: "Forget key" }));
     expect(await screen.findByText("Admin access")).toBeInTheDocument();
-    expect(sessionStorage.getItem("legacylens.adminKey")).toBeNull();
+    expect(localStorage.getItem("legacylens.adminKey")).toBeNull();
   });
 
   it("explains an unreachable backend", async () => {
@@ -182,5 +181,30 @@ describe("App", () => {
     expect(await screen.findByText("Audit trail", { selector: "h2" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Audit trail" })).toHaveAttribute("aria-selected", "true");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+});
+
+describe("admin key in the link", () => {
+  it("takes #key= once, sends it, and removes it from the address bar", async () => {
+    const calls = mockApi({ requireKey: "s3cret" });
+    window.history.replaceState({}, "", "/app/?tab=overview#key=s3cret");
+    render(<App />);
+    expect(await screen.findByText("Conversations allowed")).toBeInTheDocument();
+    expect(calls.every((c) => c.key === "s3cret")).toBe(true);
+    expect(window.location.href).not.toContain("s3cret");
+    expect(window.location.search).toBe("?tab=overview");
+    expect(localStorage.getItem("legacylens.adminKey")).toBe("s3cret");
+  });
+});
+
+describe("remembered admin key", () => {
+  it("opens a new tab (e.g. a link from the Teams card) without asking again", async () => {
+    localStorage.setItem("legacylens.adminKey", "k3y");
+    const calls = mockApi({ requireKey: "k3y" });
+    window.history.replaceState({}, "", "/app/?tab=risks");
+    render(<App />);
+    await screen.findAllByRole("tab");
+    expect(screen.queryByText("Admin access")).not.toBeInTheDocument();
+    expect(calls.every((c) => c.key === "k3y")).toBe(true);
   });
 });

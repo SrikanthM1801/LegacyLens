@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 from functools import lru_cache
 from typing import Optional, Protocol
 
@@ -120,6 +121,9 @@ class InMemorySearch:
         return len(doomed)
 
 
+_QUERY_CACHE_MAX = 2000
+
+
 class AzureSearch:
     def __init__(self, settings: Settings, llm: LLMService) -> None:
         from azure.core.credentials import AzureKeyCredential
@@ -133,6 +137,22 @@ class AzureSearch:
         self._client = SearchClient(
             settings.azure_search_endpoint, settings.azure_search_index_name, cred
         )
+        # Query embeddings by text. Risk analysis searches every topic name (twice) on each recompute, and
+        # topic names rarely change, so this turns ~100 embedding calls per recompute into almost none.
+        self._query_vectors: dict[str, list[float]] = {}
+        self._query_lock = threading.Lock()
+
+    def _query_vector(self, query: str) -> list[float]:
+        with self._query_lock:
+            hit = self._query_vectors.get(query)
+        if hit is not None:
+            return hit
+        vec = self._llm.embed([query])[0]
+        with self._query_lock:
+            if len(self._query_vectors) >= _QUERY_CACHE_MAX:
+                self._query_vectors.pop(next(iter(self._query_vectors)))  # oldest first
+            self._query_vectors[query] = vec
+        return vec
 
     def reset(self) -> None:
         from azure.search.documents.indexes.models import (
@@ -200,7 +220,7 @@ class AzureSearch:
             safe = author.replace("'", "''")
             clauses.append(f"author eq '{safe}'")
         vq = VectorizedQuery(
-            vector=self._llm.embed([query])[0], k_nearest_neighbors=top_k, fields="embedding"
+            vector=self._query_vector(query), k_nearest_neighbors=top_k, fields="embedding"
         )
         results = self._client.search(
             search_text=query,

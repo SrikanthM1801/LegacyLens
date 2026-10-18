@@ -211,3 +211,29 @@ td.muted { color: var(--muted); }
   .dumbbell__row, .dumbbell__scale { grid-template-columns: 1fr; gap: 4px; }
   .dumbbell__scale > :first-child { display: none; } .dumbbell__scale > :last-child { display: none; }
 }
+
+/* ---------- knowledge detail ---------- */
+.muted { color: var(--muted); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--series-1); cursor: pointer; text-align: left; font-weight: 500; }
+.linkbtn:hover { text-decoration: underline; }
+a { color: var(--series-1); }
+.detail { border-color: var(--series-1); }
+.detail__h { font-size: 13.5px; font-weight: 650; margin: 22px 0 10px; }
+.score { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.score__head { display: flex; justify-content: space-between; color: var(--ink-2); font-size: 13px; }
+.score__head b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.score__track { height: 8px; background: var(--wash); border-radius: 4px; overflow: hidden; }
+.score__bar { display: block; height: 100%; border-radius: 4px; }
+.score__hint { color: var(--muted); font-size: 12px; }
+.cites, .qa { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+.cites__head { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.cites__meta { color: var(--muted); font-size: 12px; }
+blockquote { margin: 4px 0 0; padding: 4px 0 4px 10px; border-left: 3px solid var(--grid); color: var(--ink-2); font-size: 13px; overflow-wrap: anywhere; }
+.qa__answer { margin-top: 6px; padding: 8px 10px; background: var(--wash); border-radius: 8px; white-space: pre-wrap; }
+.plain { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.md { display: grid; gap: 10px; max-width: 78ch; overflow-wrap: anywhere; }
+.md h2 { font-size: 17px; margin-top: 8px; } .md h3 { font-size: 15px; margin-top: 6px; } .md h4 { font-size: 14px; }
+.md ul, .md ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+.md code { background: var(--wash); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+.md sup a { text-decoration: none; font-size: 11px; }
+.tabs { flex-wrap: wrap; }

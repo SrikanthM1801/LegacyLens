@@ -139,7 +139,7 @@ describe("tabs and the consent register", () => {
       return { ok: true, status: 200, statusText: "ok", json: async () => body } as Response;
     }));
   }
-  beforeEach(() => { sessionStorage.clear(); window.history.replaceState({}, "", "/"); });
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); window.history.replaceState({}, "", "/"); });
   afterEach(() => vi.unstubAllGlobals());
 
   it("has a tab for knowledge sources and one for onboarding", async () => {
@@ -147,7 +147,9 @@ describe("tabs and the consent register", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("Conversations allowed");
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Overview", "Knowledge sources", "Onboarding", "Consent and data", "Audit trail"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Overview", "Knowledge risks", "Interviews and handovers", "Documents", "Knowledge sources", "Onboarding", "Consent and data", "Audit trail",
+    ]);
     await user.click(screen.getByRole("tab", { name: "Knowledge sources" }));
     expect(await screen.findByText("Recent file changes")).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Onboarding" }));

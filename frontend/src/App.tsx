@@ -8,18 +8,24 @@ import { useAdminKey, useAsync } from "./hooks";
 import type { Scope } from "./types";
 import { AuditTrail } from "./views/AuditTrail";
 import { Consent } from "./views/Consent";
+import { Documents } from "./views/Documents";
+import { Interviews } from "./views/Interviews";
 import { Onboarding } from "./views/Onboarding";
+import { Risks } from "./views/Risks";
 import { Sources } from "./views/Sources";
 import { Overview } from "./views/Overview";
 
-type Tab = "overview" | "sources" | "onboarding" | "consent" | "audit";
+type Tab = "overview" | "risks" | "interviews" | "documents" | "sources" | "onboarding" | "consent" | "audit";
 type Theme = "system" | "light" | "dark";
 const TABS: [Tab, string][] = [
-  ["overview", "Overview"], ["sources", "Knowledge sources"], ["onboarding", "Onboarding"],
+  ["overview", "Overview"], ["risks", "Knowledge risks"], ["interviews", "Interviews and handovers"],
+  ["documents", "Documents"], ["sources", "Knowledge sources"], ["onboarding", "Onboarding"],
   ["consent", "Consent and data"], ["audit", "Audit trail"],
 ];
 const THEME_KEY = "legacylens.theme";
 const ORG: Scope = { level: "org", id: "org" };
+/** Tabs over the live knowledge base: the scope and period filters do not apply to them. */
+const KNOWLEDGE_TABS = new Set<Tab>(["risks", "interviews", "documents"]);
 
 function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -44,6 +50,9 @@ export function App() {
     return TABS.some(([id]) => id === t) ? (t as Tab) : "overview";
   });
   const [theme, cycleTheme] = useTheme();
+  const [docId, setDocId] = useState<string | null>(() => new URLSearchParams(window.location.search).get("doc"));
+  const openDoc = (id: string) => { setDocId(id); setTab("documents"); };
+  const knowledgeTab = KNOWLEDGE_TABS.has(tab);
 
   const tree = useAsync((s) => api.hierarchy(adminKey, s), [adminKey]);
   const summary = useAsync((s) => api.summary(scope, days, adminKey, s), [scope.level, scope.id, days, adminKey]);
@@ -71,11 +80,11 @@ export function App() {
         </div>
       </header>
 
-      <div className="filters" role="search">
+      {!knowledgeTab && <div className="filters" role="search">
         {tree.data && <ScopePicker root={tree.data} scope={scope} onChange={setScope} />}
         <span className="spacer" />
         <DateRange days={days} onChange={setDays} />
-      </div>
+      </div>}
 
       <nav className="tabs" role="tablist" aria-label="Sections">
         {TABS.map(([id, label]) => (
@@ -83,11 +92,14 @@ export function App() {
         ))}
       </nav>
 
-      <main className={summary.loading && summary.data ? "dim" : undefined}>
-        {failure && !(failure instanceof ApiError && failure.needsKey) && (
+      <main className={summary.loading && summary.data && !knowledgeTab ? "dim" : undefined}>
+        {failure && !knowledgeTab && !(failure instanceof ApiError && failure.needsKey) && (
           <Banner icon="alert" tone="critical">{failure.message}</Banner>
         )}
-        {!summary.data && summary.loading && <p className="empty" role="status">Loading…</p>}
+        {tab === "risks" && <Risks adminKey={adminKey} onOpenDoc={openDoc} />}
+        {tab === "interviews" && <Interviews adminKey={adminKey} />}
+        {tab === "documents" && <Documents adminKey={adminKey} openId={docId} onOpen={setDocId} />}
+        {!knowledgeTab && !summary.data && summary.loading && <p className="empty" role="status">Loading…</p>}
         {summary.data && tab === "overview" && <Overview s={summary.data} />}
         {summary.data && tab === "sources" && <Sources s={summary.data} />}
         {summary.data && tab === "onboarding" && <Onboarding s={summary.data} />}

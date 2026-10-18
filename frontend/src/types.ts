@@ -218,3 +218,113 @@ export interface Scope {
   level: Level;
   id: string;
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge detail (GET /risks, /interviews, /artifacts, /departures)
+// ---------------------------------------------------------------------------
+
+export type RiskLevel = "high" | "medium" | "low";
+
+export interface Citation {
+  artifact_id: string;
+  snippet: string;
+  url_or_path: string | null;
+  title: string;
+  artifact_type: string | null;
+  author: string | null;
+  timestamp: string | null;
+  score: number | null;
+}
+
+/** One topic's knowledge concentration. Owners are deliberately not shown: topics, not people. */
+export interface RiskItem {
+  id: string;
+  topic: string;
+  entity_id: string | null;
+  entity_type: "system" | "process" | "decision" | string | null;
+  summary: string;
+  owner_candidates: string[];
+  bus_factor: number;
+  coverage_score: number;
+  activity_score: number;
+  risk_score: number;
+  risk_level: RiskLevel;
+  missing_doc_types: string[];
+  evidence: Citation[];
+  computed_at: string;
+}
+
+export interface RiskListResponse {
+  items: RiskItem[];
+  total: number;
+  computed_at: string;
+}
+
+export interface InterviewQuestion {
+  id: string;
+  text: string;
+  rationale: string;
+  evidence: Citation[];
+  answered: boolean;
+  follow_up_of: string | null;
+}
+
+export interface InterviewAnswer {
+  id: string;
+  question_id: string;
+  text: string;
+  answered_at: string;
+}
+
+export type InterviewStatus = "pending" | "in_progress" | "completed";
+
+export interface InterviewSession {
+  id: string;
+  risk_id: string;
+  topic: string;
+  status: InterviewStatus;
+  questions: InterviewQuestion[];
+  answers: InterviewAnswer[];
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface GeneratedDoc {
+  id: string;
+  type: "runbook" | "handover" | "decision_log" | string;
+  title: string;
+  topic: string | null;
+  markdown: string;
+  citations: Citation[];
+  generated_at: string;
+  model: string;
+  open_questions: string[];
+}
+
+export interface AtRiskTopic {
+  risk_id: string;
+  topic: string;
+  share: number;
+  risk_score: number;
+  risk_level: RiskLevel;
+  coverage: number;
+  risk_after: number | null;
+  level_after: RiskLevel | null;
+}
+
+export type DepartureStatus = "alerted" | "interviewing" | "reviewing" | "publishing" | "completed" | "no_risk" | "cancelled";
+
+export interface Departure {
+  id: string;
+  person_name: string;
+  source: "out_of_office" | "self" | "owner";
+  starts_at: string | null;
+  ends_at: string | null;
+  detected_at: string;
+  status: DepartureStatus;
+  at_risk: AtRiskTopic[];
+  session_ids: string[];
+  handover_doc_id: string | null;
+  handover_url: string | null;
+  error: string | null;
+}

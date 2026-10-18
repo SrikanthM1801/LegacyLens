@@ -1,4 +1,7 @@
-import type { ConsentRow, DashboardSummary, EventsResponse, HierarchyNode, Outcome, Scope } from "./types";
+import type {
+  ConsentRow, DashboardSummary, Departure, EventsResponse, GeneratedDoc, HierarchyNode, InterviewSession, Outcome,
+  RiskListResponse, Scope,
+} from "./types";
 
 // Dev server: the API is on :8000. Production build: the backend serves this page, so call the same origin
 // (relative URLs). VITE_API_BASE_URL overrides either, e.g. a UI hosted apart from the API.
@@ -59,4 +62,9 @@ export const api = {
     ),
   consents: (scope: Scope, key: string, signal?: AbortSignal) =>
     get<ConsentRow[]>("/dashboard/consents", { level: scope.level, id: scope.id }, key, signal),
+  // Knowledge detail: the live knowledge base, not the audit trail, so not filtered by scope or period.
+  risks: (key: string, signal?: AbortSignal) => get<RiskListResponse>("/risks", {}, key, signal),
+  interviews: (key: string, signal?: AbortSignal) => get<InterviewSession[]>("/interviews", {}, key, signal),
+  documents: (key: string, signal?: AbortSignal) => get<GeneratedDoc[]>("/artifacts", {}, key, signal),
+  departures: (key: string, signal?: AbortSignal) => get<Departure[]>("/departures", {}, key, signal),
 };

@@ -9,6 +9,7 @@ Service, and an AgentApplication whose handlers stay thin:
     also record the project roster that chat detection uses (bot/chat_watch.py);
   * consent card click -> record the decision, then backfill or leave;
   * message that @mentions us (or 1:1) -> answer via `replies.py`; `pause` / `resume` manage consent;
+    `admin` / `dashboard` reply with a card that opens the dashboard served at <PUBLIC_BASE_URL>/app;
   * any other message -> captured only if this conversation granted consent (bot/capture.py).
 
 We use hosting-core directly with a ~20-line FastAPI shim (`process`) rather than
@@ -534,6 +535,11 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
         command = " ".join(text.lower().split()).strip(" ./!?")
         if kind == "channel" and command.startswith("assign"):
             await handle_assign(context)
+            return
+        if replies.is_dashboard_command(command):
+            card, _ = await asyncio.to_thread(replies.dashboard_reply, command, get_settings().public_base_url)
+            await context.send_activity(_card(card))  # one message; the card carries its own fallbackText
+            audit.record("ask.answered", source="teams", **_actor(activity), **_scope(activity), details={"reply": "dashboard"})
             return
         if command.startswith("away") or (kind == "channel" and command.startswith(("handover", "link "))):
             await handle_departure_command(context, command, text)

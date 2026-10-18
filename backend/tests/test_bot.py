@@ -129,3 +129,37 @@ def test_questions_show_typing_but_commands_do_not(client):
     types = lambda text: [a["type"] for a in client.post("/api/messages", json=activity(text)).json()["activities"]]
     assert types("What do I do if the bank file is late?")[0] == "typing"
     assert "typing" not in types("risks")
+
+
+def test_admin_opens_the_dashboard_with_deep_links(client):
+    card, fallback = replies.dashboard_reply("admin", "https://tunnel.example/")
+    assert card["actions"][0] == {"type": "Action.OpenUrl", "title": "Open dashboard", "url": "https://tunnel.example/app/"}
+    assert "https://tunnel.example/app/" in fallback
+    card, _ = replies.dashboard_reply("admin handovers", "https://tunnel.example")
+    assert card["actions"][0]["url"] == "https://tunnel.example/app/?tab=interviews"
+    top = __import__("app.services.risk_store", fromlist=["x"]).get_risks().items[0]
+    card, _ = replies.dashboard_reply(f"dashboard {top.topic.lower()}", "https://tunnel.example")
+    assert card["actions"][0]["url"] == f"https://tunnel.example/app/?tab=risks&risk={top.id}"
+    card, fallback = replies.dashboard_reply("admin no-such-topic-xyz", "")
+    assert card["actions"][0]["url"] == "http://localhost:8000/app/" and "don't know a topic" in fallback
+    text = str(card)
+    for person in ("Ravi", "Priya", "Arjun", "Meera"):  # topics, never people
+        assert person not in text
+
+
+def test_admin_command_through_the_bot(client):
+    r = client.post("/api/messages", json=activity("admin risks"))
+    [msg] = [a for a in r.json()["activities"] if a.get("type") == "message"]
+    card = msg["attachments"][0]["content"]
+    assert card["actions"][0]["url"].endswith("/app/?tab=risks")
+    assert "typing" not in [a["type"] for a in r.json()["activities"]]
+
+
+def test_admin_card_never_waits_for_a_risk_recompute(client, monkeypatch):
+    from app.services import risk_store
+
+    monkeypatch.setattr(risk_store, "peek", lambda: None)  # cold cache
+    monkeypatch.setattr(risk_store, "get_risks", lambda: (_ for _ in ()).throw(AssertionError("must not compute")))
+    card, _ = replies.dashboard_reply("admin payment gateway", "https://tunnel.example")
+    assert card["actions"][0]["url"] == "https://tunnel.example/app/"
+    assert "being computed" in str(card)
