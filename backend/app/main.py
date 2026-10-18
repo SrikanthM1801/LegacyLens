@@ -12,7 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import artifacts, ask, audit, bot, dashboard, graph, ingest, interviews, knowledge, people, risks, webhooks
+from app.api import artifacts, ask, audit, bot, dashboard, graph, ingest, interviews, knowledge, onboarding, people, risks, webhooks
 from app.bot.chat_watch import subscription_loop
 from app.config import VERSION, get_settings
 from app.graph import get_graph
@@ -146,6 +146,7 @@ def create_app() -> FastAPI:
         app.mount("/app", StaticFiles(directory=settings.ui_dist_dir, html=True), name="dashboard-ui")
     app.include_router(audit.router)
     app.include_router(knowledge.router)
+    app.include_router(onboarding.router)
     app.include_router(dashboard.router)
     return app
 

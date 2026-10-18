@@ -9,6 +9,10 @@ subscription that tells us when a chat is created. Permissions (admin-consented)
   TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All — install ourselves with RSC
   AppCatalog.Read.All                                 — find our catalog id (or set TEAMS_CATALOG_APP_ID)
 Chat.ReadBasic.All also lets `scan` list project members' existing group chats (names + members).
+Onboarding (bot/onboarding.py): TeamMember.Read.All (is the sender a team owner?),
+User.ReadBasic.All (find a candidate by email / UPN, e.g. someone not yet on the team) and
+TeamsAppInstallation.ReadWriteAndConsentSelfForUser.All (install LegacyLens for the candidate so it can open
+a 1:1; the "AndConsent" variant is required because the app declares resource-specific permissions).
 SharePoint (ingestion/sharepoint.py): Sites.Selected + a read grant on the project site only
 (or Sites.Read.All) — resolve the site, list its document libraries, read the drive delta, download.
 Message reads use the RSC grants (ChatMessage.Read.Chat / ChannelMessage.Read.Group) the
@@ -76,6 +80,9 @@ class GraphService(Protocol):
     async def chat_messages(self, chat_id: str, top: int) -> list[GraphMessage]: ...
     async def channel_messages(self, team_id: str, channel_id: str, top: int) -> list[GraphMessage]: ...
     async def recent_group_chat_ids(self, user_aad_id: str, top: int = 20) -> list[str]: ...
+    async def team_owner_ids(self, group_id: str) -> set[str]: ...
+    async def install_app_for_user(self, user_aad_id: str) -> None: ...
+    async def find_user(self, identifier: str) -> Optional[tuple[str, str]]: ...
     async def resolve_site(self, site_url: str) -> SiteInfo: ...
     async def list_drives(self, site_id: str) -> list[tuple[str, str]]: ...
     async def drive_delta(self, drive_id: str, delta_link: Optional[str]) -> tuple[list[dict], str]: ...
@@ -180,6 +187,41 @@ class AzureGraph:
             "GET", f"/users/{user_aad_id}/chats?$filter=chatType eq 'group'&$top={min(top, 50)}", "list user chats")
         return [c["id"] for c in d.get("value", [])]
 
+    async def team_owner_ids(self, group_id: str) -> set[str]:
+        d = await self._call("GET", f"/teams/{group_id}/members", "list team members")
+        return {m["userId"] for m in d.get("value", []) if "owner" in (m.get("roles") or []) and m.get("userId")}
+
+    async def install_app_for_user(self, user_aad_id: str) -> None:
+        """Personal-scope install so LegacyLens can open a 1:1 chat. Already installed is fine."""
+        app_id = await self._catalog_app_id()
+        defs = (await self._call("GET", f"/appCatalogs/teamsApps/{app_id}/appDefinitions", "read app definition")).get("value", [])
+        required = ((defs[-1].get("authorization") or {}).get("requiredPermissionSet") or {}).get(
+            "resourceSpecificPermissions", []) if defs else []
+        body: dict[str, Any] = {"teamsApp@odata.bind": f"{GRAPH}/appCatalogs/teamsApps/{app_id}"}
+        if required:  # must match the app's declared RSC permissions exactly
+            body["consentedPermissionSet"] = {"resourceSpecificPermissions": [
+                {"permissionValue": p["permissionValue"], "permissionType": p["permissionType"].capitalize()} for p in required]}
+        try:
+            await self._call("POST", f"/users/{user_aad_id}/teamwork/installedApps", "install app for user", json=body)
+        except GraphError as e:
+            if e.status != 409:
+                raise
+
+    async def find_user(self, identifier: str) -> Optional[tuple[str, str]]:
+        """(Entra object id, display name) for an object id, UPN or email; None if not in the tenant."""
+        ident = identifier.strip().lower()
+        try:
+            d = await self._call("GET", f"/users/{ident}?$select=id,displayName", "find user")
+            return d["id"], d.get("displayName") or ident
+        except GraphError as e:
+            if e.status not in (400, 404):
+                raise
+        safe = ident.replace("'", "''")  # guests: the email is `mail`, not the UPN
+        d = await self._call("GET", f"/users?$filter=mail eq '{safe}'&$select=id,displayName",
+                             "find user by mail")
+        hit = (d.get("value") or [None])[0]
+        return (hit["id"], hit.get("displayName") or ident) if hit else None
+
     async def resolve_site(self, site_url: str) -> SiteInfo:
         """https://contoso.sharepoint.com/sites/Project -> site id; a raw site id is accepted too."""
         if "://" not in site_url:
@@ -254,6 +296,9 @@ class MockGraph:
         self.drives: dict[str, list[tuple[str, str]]] = {}
         self.changes: dict[str, list[dict]] = {}     # drive id -> ordered change log
         self.contents: dict[str, bytes] = {}
+        self.owners: dict[str, set[str]] = {}       # group id -> owner aad ids
+        self.user_installs: set[str] = set()
+        self.users: dict[str, tuple[str, str]] = {}    # email / upn / id -> (aad id, name)
 
     async def get_chat(self, chat_id: str) -> ChatInfo:
         if chat_id not in self.chats:
@@ -275,6 +320,15 @@ class MockGraph:
 
     async def recent_group_chat_ids(self, user_aad_id: str, top: int = 20) -> list[str]:
         return [c.id for c in self.chats.values() if c.chat_type == "group" and user_aad_id in c.member_aad_ids][:top]
+
+    async def team_owner_ids(self, group_id: str) -> set[str]:
+        return set(self.owners.get(group_id, set()))
+
+    async def install_app_for_user(self, user_aad_id: str) -> None:
+        self.user_installs.add(user_aad_id)
+
+    async def find_user(self, identifier: str) -> Optional[tuple[str, str]]:
+        return self.users.get(identifier.strip().lower())
 
     # --- SharePoint ------------------------------------------------------------
     def add_site(self, url: str, site_id: str, name: str, drive_id: str = "drive-1") -> None:

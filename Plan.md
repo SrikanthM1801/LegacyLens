@@ -635,3 +635,18 @@ removed. Permission: `Sites.Selected` + a read grant on that one site. Registry 
 (per file: change added/modified/deleted, path, link, modified_by, status, chunks) and `sync.sharepoint`.
 Real documents need `USE_MOCKS=false`: the rule extractor only knows the sample project's topics,
 the LLM extractor discovers new ones, and Azure AI Search keeps the index across restarts.
+
+### Onboarding assessment (17 Oct 2026)
+
+A team owner types `@LegacyLens assign @Name` in the project channel (owner check via Graph
+`TeamMember.Read.All`). Candidates outside the team can be assigned by email / UPN / shared contact card (`User.ReadBasic.All`).
+LegacyLens installs itself for the candidate (`TeamsAppInstallation.ReadWriteAndConsentSelfForUser.All`: the
+"AndConsent" variant is required because the app declares RSC permissions),
+opens a 1:1 chat and sends a welcome card stating what is evaluated. The candidate learns with ask / topics /
+runbook / risks; each request goes into the session's learning log with the topics it touched. `start` writes
+2 questions from the project documents (one studied topic, one unexplored), sent as cards. After the last
+answer, `agents/assessor.py` scores each answer 0-5 against hidden expected points and the learning journey
+0-5; overall = 65% answers + 35% journey (computed in code), readiness ready >= 75 / almost >= 50. The
+candidate sees the result first, then a result card is posted to the project channel. Sessions:
+`knowledge/onboarding/sessions/<id>.json` (Blob); admin: `GET /onboarding/sessions[/{id}]`; audit category
+`onboarding.*`. Safeguards: see CLAUDE.md non-negotiable 7.

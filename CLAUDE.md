@@ -12,7 +12,7 @@ An AI agent that finds knowledge held by one person (low bus factor, no docs), i
 4. **All LLM prompts live in `backend/app/agents/prompts.py`.** Nowhere else.
 5. **Never read, print or commit `.env`.** It holds real Azure keys. Use `.env.example` for reference.
 6. **Demo data is sacred.** The 3 planted risks (payment gateway outages / Ravi, settlement batch job / Arjun, Kafka-vs-RabbitMQ decision / Priya) must always rank in the top 3. Keep an acceptance test for it.
-7. Risk scores describe **knowledge concentration, not individual productivity.** UI shows topics, not employee rankings.
+7. Risk scores describe **knowledge concentration, not individual productivity.** UI shows topics, not employee rankings. The one person-level evaluation is the **onboarding assessment**, and only with its safeguards: assigned by a team owner, the candidate is told up front what is evaluated, sees the result before the channel does, scoring is against cited project documents (never style or fluency), and the card says an owner should review it. No leaderboards.
 
 ## Always research first
 **Search the web before touching anything external** — Azure OpenAI, AI Search, Graph, Copilot Studio, M365 Agents SDK, any pip/npm package, API versions, model names, errors you can't explain. Use WebSearch (extended for niche/recent topics) and read official pages (learn.microsoft.com, library GitHub/PyPI/npm) with WebFetch. Pinned versions in `requirements.txt` may be stale; flag conflicts instead of silently upgrading. Never put secrets or real data in queries. Details: `.claude/skills/research-first`.

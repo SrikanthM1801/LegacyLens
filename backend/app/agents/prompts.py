@@ -164,3 +164,68 @@ def build_ask_user(question: str, sources: list[tuple[str, str, bool]]) -> str:
     for i, (title, text, is_interview) in enumerate(sources, 1):
         lines.append(f"[{i}] ({'INTERVIEW' if is_interview else 'SOURCE'}) {title}\n{text}\n")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Onboarding assessment: question writing and evaluation
+# ---------------------------------------------------------------------------
+
+ASSESSMENT_QUESTION_SYSTEM = """\
+You write ONE question that checks whether a newcomer to a project has understood a topic.
+You are given the TOPIC, whether the newcomer STUDIED it (asked about it) or not, and numbered
+SOURCES from the project's own documents.
+
+Rules:
+- The question must be answerable from the sources alone, in 3-6 sentences. Test understanding
+  (purpose, how it works, why it was chosen, what to do when...), not trivia such as dates or ids.
+- Plain language, under 45 words, address the newcomer as "you", end with a question mark.
+- expected_points: 3-5 short facts a good answer would contain, each taken from the sources.
+- sources: the source numbers the question and points use. Never invent facts or numbers.
+
+Return JSON: {"question": str, "expected_points": [str], "sources": [int]}
+"""
+
+
+def build_assessment_question_user(topic: str, focus: str, sources: list[tuple[str, str]]) -> str:
+    lines = [f"TOPIC: {topic}", f"NEWCOMER {'STUDIED' if focus == 'studied' else 'DID NOT STUDY'} THIS TOPIC", "", "SOURCES:"]
+    for i, (title, text) in enumerate(sources, 1):
+        lines.append(f"[{i}] {title}\n{text}\n")
+    return "\n".join(lines)
+
+
+ASSESSMENT_EVAL_SYSTEM = """\
+You evaluate how ready a newcomer is to work on a project, from two things only:
+1. their LEARNING JOURNEY: the questions they asked LegacyLens about the project before the assessment;
+2. their ANSWERS to two assessment questions, each with EXPECTED POINTS drawn from project documents.
+
+Rules:
+- Score each answer 0-5 against its expected points only: 5 = all points, correct and well explained;
+  3 = the main idea with gaps; 1 = mostly wrong or vague; 0 = blank or off-topic. Do not use outside
+  knowledge, and do not reward confident wording that is not supported by the expected points.
+- Ignore grammar, spelling, language fluency and writing style. Judge content only.
+- journey_score 0-5: breadth (how many project topics they explored), depth (follow-up questions on
+  the same topic), and relevance to the work. Asking nothing scores 0.
+- strengths and gaps: 1-3 short items each, about project knowledge (never personality).
+- summary: 2-3 neutral sentences describing the newcomer's current understanding of the project and
+  what to study next. No judgements about the person beyond this project.
+
+Return JSON: {"answer_scores": [{"question_id": str, "score": int, "reason": str}],
+"journey_score": int, "journey_summary": str, "strengths": [str], "gaps": [str], "summary": str}
+"""
+
+
+def build_assessment_eval_user(
+    candidate: str, project_topics: list[str], journey: list[tuple[str, list[str], bool]],
+    questions: list[tuple[str, str, str, list[str], str]],
+) -> str:
+    """journey: (question, topics touched, answered). questions: (id, focus, text, expected points, answer)."""
+    lines = [f"NEWCOMER: {candidate}", "PROJECT TOPICS: " + "; ".join(project_topics), "", "LEARNING JOURNEY:"]
+    if not journey:
+        lines.append("(asked nothing before starting)")
+    for i, (q, topics, answered) in enumerate(journey, 1):
+        lines.append(f"{i}. {q}  [topics: {', '.join(topics) or 'none'}]{'' if answered else ' (no answer found)'}")
+    lines += ["", "ASSESSMENT:"]
+    for qid, focus, text, points, answer in questions:
+        lines.append(f"question_id={qid} ({focus} topic)\nQ: {text}\nEXPECTED POINTS: " + " | ".join(points)
+                     + f"\nANSWER: {answer or '(blank)'}\n")
+    return "\n".join(lines)

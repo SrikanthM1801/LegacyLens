@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -42,7 +43,7 @@ from microsoft_agents.hosting.core.authorization.jwt import _authorize_request
 
 from microsoft_agents.activity import Activity, Attachment
 
-from app.bot import consent, replies
+from app.bot import consent, onboarding, replies
 from app.bot.capture import LiveMessage, capture
 from app.config import Settings, get_settings
 from app.models import ConsentRecord, ProjectTeam
@@ -160,6 +161,106 @@ async def fetch_team_member_ids(context: TurnContext, team_id: str) -> list[str]
     # Teams' roster API names the Entra id `objectId`, which the SDK keeps as an extra field.
     ids = [m.aad_object_id or (m.model_extra or {}).get("objectId") for m in members]
     return [i for i in ids if i]
+
+
+async def resolve_member_aad(context: TurnContext, team_id: str, member_id: str) -> Optional[str]:
+    """Entra object id for a Teams user id (29:...) from the team roster."""
+    connector = context.turn_state.get("ConnectorClient")
+    for m in await connector.conversations.get_conversation_members(team_id):
+        if m.id == member_id:
+            return m.aad_object_id or (m.model_extra or {}).get("objectId")
+    return None
+
+
+_EMAIL = re.compile(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+_ORGID = re.compile(r"8:orgid:([0-9a-fA-F-]{36})")
+
+
+def _identifiers(activity) -> list[str]:
+    """Emails / UPNs / Entra ids anywhere in the message: typed text, a shared contact card, entities."""
+    import json
+
+    blob = " ".join([
+        activity.text or "",
+        json.dumps([a.model_dump(mode="json", by_alias=True) for a in activity.attachments or []]),
+        json.dumps([e.model_dump(mode="json", by_alias=True) for e in activity.entities or []]),
+    ])
+    found = [m.group(1) for m in _ORGID.finditer(blob)] + _EMAIL.findall(blob)
+    bot_upn = (activity.recipient.name or "").lower() if activity.recipient else ""
+    return [i for i in dict.fromkeys(f.lower() for f in found) if i != bot_upn]
+
+
+async def handle_assign(context: TurnContext) -> None:
+    activity = context.activity
+    team = _channel_data(activity).get("team") or {}
+    bot_id = activity.recipient.id if activity.recipient else None
+    target = next((m.mentioned for m in TurnContext.get_mentions(activity)
+                   if m.mentioned and m.mentioned.id != bot_id), None)
+    candidate_aad, candidate_name = None, (target.name if target else "") or ""
+    if target and team.get("id"):
+        try:
+            candidate_aad = await resolve_member_aad(context, team["id"], target.id)
+        except Exception as e:
+            log.warning("could not resolve the assigned member: %s", type(e).__name__)
+    if not candidate_aad:  # not a team member: an email, UPN or shared contact card instead of an @mention
+        log.info("assign without a team mention; attachments=%s entities=%s",
+                 [a.content_type for a in activity.attachments or []], [e.type for e in activity.entities or []])
+        for ident in _identifiers(activity):
+            try:
+                found = await get_graph_api().find_user(ident)
+            except Exception as e:
+                log.warning("user lookup failed: %s", type(e).__name__)
+                found = None
+            if found:
+                candidate_aad, candidate_name = found
+                break
+    who = activity.from_property
+    reply = await onboarding.assign(
+        owner_aad=who.aad_object_id if who else None, owner_name=(who.name if who else "") or "",
+        candidate_aad=candidate_aad, candidate_name=candidate_name or "the candidate",
+        team=team, channel_id=scope_of(activity)[0], service_url=activity.service_url or "",
+        tenant_id=activity.conversation.tenant_id,
+    )
+    await context.send_activity(reply)
+
+
+async def handle_personal_onboarding(context: TurnContext, command: str, text: str) -> bool:
+    """Onboarding steps in the candidate's 1:1 chat. Returns True when handled."""
+    activity = context.activity
+    who = activity.from_property
+    value = activity.value if isinstance(activity.value, dict) else {}
+    s = await asyncio.to_thread(onboarding.session_for, who.aad_object_id if who else None, activity.conversation.id)
+    if value.get("verb") == onboarding.ANSWER_VERB or (s and s.status == "assessing" and command not in replies.COMMANDS
+                                                        and not command.startswith(("ask ", "runbook "))):
+        if s is None:
+            await context.send_activity("This assessment is no longer open.")
+            return True
+        card, reply, finished = await asyncio.to_thread(onboarding.answer, s, value.get("question_id"),
+                                                        value.get("answer") if value else text)
+        await context.send_activity(reply)
+        if card:
+            await context.send_activity(_card(card))
+        if finished:
+            _spawn(onboarding.finish(s.id))
+        return True
+    if command == "start":
+        if s is None:
+            await context.send_activity("You don't have an onboarding assessment yet. A project owner can assign one with "
+                                        "**@LegacyLens assign @you** in the project channel.")
+            return True
+        try:
+            await context.send_activity(Activity(type="typing"))
+        except Exception:
+            pass
+        card, reply = await asyncio.to_thread(onboarding.start, s)
+        await context.send_activity(reply)
+        if card:
+            await context.send_activity(_card(card))
+        return True
+    if command == "status" and s:
+        await context.send_activity(await asyncio.to_thread(onboarding.progress_text, s))
+        return True
+    return False
 
 
 async def refresh_project(context: TurnContext) -> None:
@@ -323,6 +424,9 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
             await on_consent_click(context, activity.value)
             return
         scope_id, kind = scope_of(activity)
+        if kind == "personal" and isinstance(activity.value, dict) and activity.value.get("verb") == onboarding.ANSWER_VERB:
+            await handle_personal_onboarding(context, "", "")
+            return
         if kind != "personal" and not _mentions_bot(activity):
             # Not addressed to us: learn from it only if this conversation said yes.
             if await asyncio.to_thread(is_granted, get_consent_store(), scope_id):
@@ -332,6 +436,11 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
             await refresh_project(context)  # keep the project roster current (needs the live turn)
         text = TurnContext.remove_recipient_mention(activity) or ""
         command = " ".join(text.lower().split()).strip(" ./!?")
+        if kind == "channel" and command.startswith("assign"):
+            await handle_assign(context)
+            return
+        if kind == "personal" and await handle_personal_onboarding(context, command, text):
+            return
         if kind != "personal" and command in ("pause", "stop"):
             store = get_consent_store()
             rec = await asyncio.to_thread(store.get, scope_id)
@@ -356,6 +465,13 @@ def build_bot(s: Optional[Settings] = None) -> Bot:
             reply, cited, kind_of_reply = await asyncio.to_thread(replies.respond, text)
             audit.record("ask.answered", source="teams", **_actor(activity), **_scope(activity),
                          item_ids=cited, details={"reply": kind_of_reply})
+            if kind == "personal" and kind_of_reply in ("answer", "no_answer", "runbook", "topics", "risks"):
+                s = await asyncio.to_thread(onboarding.session_for, activity.from_property.aad_object_id,
+                                            activity.conversation.id)
+                if s and s.status == "learning":  # part of the candidate's learning journey
+                    learn_kind = {"answer": "ask", "no_answer": "ask"}.get(kind_of_reply, kind_of_reply)
+                    await asyncio.to_thread(onboarding.log_learning, s, text.strip(), learn_kind, cited,
+                                            kind_of_reply != "no_answer")
         except Exception:  # never leave the user without an answer; details stay in our logs
             log.exception("bot reply failed")
             audit.record("ask.answered", outcome="failure", source="teams", **_actor(activity), **_scope(activity))

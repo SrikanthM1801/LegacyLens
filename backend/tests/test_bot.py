@@ -119,8 +119,8 @@ def test_help_lists_every_manifest_command():
     from pathlib import Path
 
     manifest = json.loads((Path(__file__).resolve().parents[2] / "bot/manifest/manifest.template.json").read_text())
-    commands = [c["title"] for c in manifest["bots"][0]["commandLists"][0]["commands"]]
-    assert {"ask", "risks", "topics", "runbook", "status", "pause", "resume", "help"} == set(commands)
+    commands = {c["title"] for cl in manifest["bots"][0]["commandLists"] for c in cl["commands"]}
+    assert {"ask", "risks", "topics", "runbook", "status", "pause", "resume", "help", "assign", "start"} == commands
     assert all(f"{c}**" in replies.WELCOME or f"**{c}" in replies.WELCOME for c in commands)  # help mentions each
 
 

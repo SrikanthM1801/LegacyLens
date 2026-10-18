@@ -713,3 +713,82 @@ class ConsentRegisterRow(Base):
     project: str
     account: str
     auto_installed: bool = False
+
+
+# ---------------------------------------------------------------------------
+# 13. Onboarding assessment: a newcomer learns in a 1:1 chat, then answers 2 questions
+# ---------------------------------------------------------------------------
+# Transparent by design: the candidate is told on assignment that their questions and answers
+# feed a readiness summary, sees the result first, and the evaluation cites project sources.
+
+
+class LearningEntry(Base):
+    """One thing the candidate asked LegacyLens while learning."""
+
+    asked_at: datetime = Field(default_factory=utcnow)
+    kind: Literal["ask", "runbook", "topics", "risks"] = "ask"
+    question: str
+    topics: list[str] = Field(default_factory=list)          # topic names the answer touched
+    cited_artifact_ids: list[str] = Field(default_factory=list)
+    answered: bool = True                                     # False = "I couldn't find this"
+
+
+class AssessmentQuestion(Base):
+    id: str = Field(default_factory=lambda: new_id("aq"))
+    text: str
+    topic: str
+    focus: Literal["studied", "unexplored"]
+    expected_points: list[str] = Field(default_factory=list)  # hidden from the candidate
+    source_artifact_ids: list[str] = Field(default_factory=list)
+    source_titles: list[str] = Field(default_factory=list)
+    answer: Optional[str] = None
+    answered_at: Optional[datetime] = None
+
+
+class AnswerScore(Base):
+    question_id: str
+    score: int = Field(ge=0, le=5)
+    reason: str = ""
+
+
+class RecommendedDoc(Base):
+    title: str
+    url: Optional[str] = None
+
+
+class AssessmentEvaluation(Base):
+    readiness: Literal["ready", "almost", "needs_more_time"]
+    overall: int = Field(ge=0, le=100)                       # computed in code, not by the LLM
+    journey_score: int = Field(ge=0, le=5)
+    journey_summary: str = ""
+    answer_scores: list[AnswerScore] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    gaps: list[str] = Field(default_factory=list)
+    summary: str = ""                                         # 2-3 sentences describing the candidate's readiness
+    recommended_docs: list[RecommendedDoc] = Field(default_factory=list)
+    topics_explored: list[str] = Field(default_factory=list)
+    topics_total: int = 0
+    model: str = "mock"
+    evaluated_at: datetime = Field(default_factory=utcnow)
+
+
+class OnboardingSession(Base):
+    id: str = Field(default_factory=lambda: new_id("onb"))
+    project_team_id: str                                      # Bot Framework team id
+    project_name: str = ""
+    channel_id: str                                           # where the result card is posted
+    service_url: str = ""
+    tenant_id: Optional[str] = None
+    candidate_aad_id: str
+    candidate_name: str
+    assigned_by_aad_id: Optional[str] = None
+    assigned_by_name: Optional[str] = None
+    assigned_at: datetime = Field(default_factory=utcnow)
+    conversation_id: Optional[str] = None                     # the candidate's 1:1 chat with LegacyLens
+    status: Literal["learning", "assessing", "evaluating", "evaluated", "posted", "cancelled"] = "learning"
+    learning_log: list[LearningEntry] = Field(default_factory=list)
+    questions: list[AssessmentQuestion] = Field(default_factory=list)
+    assessment_started_at: Optional[datetime] = None
+    evaluation: Optional[AssessmentEvaluation] = None
+    posted_at: Optional[datetime] = None
+    error: Optional[str] = None

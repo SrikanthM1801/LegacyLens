@@ -193,7 +193,14 @@ def _topic_entity(t: Topic) -> Entity:
 
 
 class RuleExtractor:
-    """Deterministic extraction; needs no LLM."""
+    """Deterministic extraction; needs no LLM.
+
+    `catalog=False` turns off the sample project's topic catalog (keyword matches such as
+    "release process" -> the sample's Release Process topic). Live data uses it off, so real
+    documents only get topics the LLM finds in them."""
+
+    def __init__(self, catalog: bool = True) -> None:
+        self._catalog = catalog
 
     def extract(self, artifacts: list[Artifact], people: list[Person]) -> ExtractionResult:
         acc = _Acc()
@@ -227,7 +234,7 @@ class RuleExtractor:
 
         # Free-text topic mentions, attributed to whoever wrote the message.
         total: dict[str, int] = {}
-        for who, text in parse_messages(a, index):
+        for who, text in (parse_messages(a, index) if self._catalog else []):
             for tid, n in topic_mentions(text).items():
                 total[tid] = total.get(tid, 0) + n
                 topic = _TOPIC_BY_ID[tid]
@@ -236,7 +243,7 @@ class RuleExtractor:
                     acc.edge(who, tid, RelationType.DISCUSSED, a.id)
                 if who in known_people and topic.decision_cues and any(c in text.lower() for c in topic.decision_cues):
                     acc.edge(who, tid, RelationType.DECIDED, a.id)
-        for slug in a.metadata.get("systems", []):  # structured hints from tickets/commits
+        for slug in (a.metadata.get("systems", []) if self._catalog else []):  # structured hints from tickets/commits
             topic = BY_SLUG.get(slug)
             if topic:
                 total.setdefault(topic.id, 1)
@@ -383,4 +390,5 @@ def get_extractor() -> Extractor:
     s = get_settings()
     if s.use_mocks or not s.azure_openai_configured:
         return RuleExtractor()
-    return LLMExtractor(get_llm(), cache=JsonCache(s.state_dir / "extraction.json"))
+    return LLMExtractor(get_llm(), rules=RuleExtractor(catalog=s.use_sample_data),
+                        cache=JsonCache(s.state_dir / "extraction.json"))
