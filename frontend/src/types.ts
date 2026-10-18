@@ -27,6 +27,7 @@ export interface Kpis {
   avg_confidence: number | null;
   avg_citations: number | null;
   commands: number;
+  runbooks_requested: number;
   interviews_started: number;
   interviews_answered: number;
   interviews_approved: number;
@@ -38,6 +39,7 @@ export interface Kpis {
 
 export interface DailyActivity {
   date: string;
+  files_synced: number;
   messages_captured: number;
   questions: number;
   consent_decisions: number;
@@ -90,6 +92,77 @@ export interface GovernanceItem {
   retention: string;
 }
 
+export interface SyncRun {
+  timestamp: string;
+  outcome: Outcome;
+  added: number;
+  modified: number;
+  deleted: number;
+  unchanged: number;
+  failed: number;
+  unsupported: number;
+  chunks_indexed: number;
+  seconds: number;
+  full: boolean;
+  error: string | null;
+}
+
+export interface FileEventView {
+  timestamp: string;
+  change: "added" | "modified" | "deleted" | string;
+  file: string;
+  path: string;
+  status: string;
+  chunks: number;
+  outcome: Outcome;
+  error: string | null;
+}
+
+export interface RebuildEvent {
+  timestamp: string;
+  reason: string;
+  sharepoint_files: number;
+  teams_messages: number;
+}
+
+/** Knowledge loaded from SharePoint. Org level only: the site belongs to the shared knowledge base. */
+export interface SourcesSummary {
+  sites: number;
+  files_added: number;
+  files_modified: number;
+  files_deleted: number;
+  files_failed: number;
+  files_skipped: number;
+  chunks_indexed: number;
+  sync_runs: number;
+  sync_failures: number;
+  last_sync: string | null;
+  last_sync_outcome: Outcome | null;
+  by_type: Record<string, number>;
+  recent_syncs: SyncRun[];
+  recent_files: FileEventView[];
+  rebuilds: RebuildEvent[];
+}
+
+export type Readiness = "ready" | "almost" | "needs_more_time";
+
+/** Counts by session. No names, no individual scores; the spread is hidden for groups under `min_group`. */
+export interface OnboardingSummary {
+  assigned: number;
+  started_learning: number;
+  assessments_started: number;
+  completed: number;
+  results_posted: number;
+  failed: number;
+  learning_questions: number;
+  learning_unanswered: number;
+  learning_by_kind: Record<string, number>;
+  readiness: Record<Readiness, number> | null;
+  average_overall: number | null;
+  min_group: number;
+  suppressed: boolean;
+}
+
 export interface ConsentFunnel {
   requested: number;
   granted: number;
@@ -114,6 +187,8 @@ export interface DashboardSummary {
   by_category: CategoryCount[];
   conversations: ConversationActivity[];
   risk_impact: RiskImpact[];
+  sources: SourcesSummary | null;
+  onboarding: OnboardingSummary;
   recent_failures: DashboardEvent[];
   governance: GovernanceItem[];
   notes: string[];
@@ -130,7 +205,7 @@ export type ConsentStatus = "granted" | "pending" | "declined" | "paused";
 export interface ConsentRow {
   scope_id: string;
   name: string;
-  type: string;
+  type: "channel" | "chat" | "site" | "mailbox" | string;
   status: ConsentStatus;
   approved_by: string | null;
   updated_at: string;

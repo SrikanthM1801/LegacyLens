@@ -39,7 +39,8 @@ from typing import Any, Iterable, Optional
 from app.config import Settings
 from app.models import (
     AuditEvent, CategoryCount, ConsentRecord, ConsentRegisterRow, ConversationActivity, DailyActivity,
-    DashboardEvent, DashboardKpis, DashboardSummary, GovernanceItem, HierarchyNode, ProjectTeam, RiskImpact,
+    DashboardEvent, DashboardKpis, DashboardSummary, FileEventView, GovernanceItem, HierarchyNode, OnboardingSummary,
+    ProjectTeam, RebuildEvent, RiskImpact, SourcesSummary, SyncRun,
 )
 
 ORG_ID = "org"
@@ -49,8 +50,22 @@ TOP_CONVERSATIONS = 10
 RECENT_FAILURES = 10
 MAX_EVENTS = 1000
 
+#: Scope types that are people talking. Anything else (a SharePoint site, a mailbox) is a knowledge *source*.
+CONVERSATION_TYPES = ("channel", "chat")
+SHARED_SOURCE_PROJECT = "Shared knowledge source"
+#: Readiness spread and average are shown only for at least this many assessments, so one newcomer's result
+#: can never be read off a chart.
+MIN_GROUP = 3
+RECENT_SYNCS = 8
+RECENT_FILES = 12
+
 #: Detail keys that identify people or individual messages; never shown on the dashboard.
-HIDDEN_DETAIL_KEYS = frozenset({"authors", "member_names", "message_ids", "question_id"})
+HIDDEN_DETAIL_KEYS = frozenset({
+    "authors", "member_names", "message_ids", "question_id", "modified_by", "created_by", "candidate",
+})
+#: Onboarding events describe one newcomer. The public view keeps only what is not about the person: no name, no
+#: scores, no topics they studied, no readiness.
+SAFE_ONBOARDING_DETAILS = frozenset({"kind", "answered", "focus", "question", "model", "error", "project"})
 
 GOVERNANCE: tuple[GovernanceItem, ...] = (
     GovernanceItem(
@@ -147,6 +162,10 @@ def conversation_name(rec: ConsentRecord, project_name: Optional[str] = None) ->
         return name
     if rec.scope_type == "channel" and project_name:
         return f"{project_name} (channel)"
+    if rec.scope_type == "site":
+        return name or "Unnamed SharePoint site"
+    if rec.scope_type == "mailbox":
+        return name or "Unnamed mailbox"
     tail = re.sub(r"[^A-Za-z0-9]", "", rec.scope_id.split("@")[0])[-6:]  # the unique part; every id ends @thread.*
     return f"Unnamed {'channel' if rec.scope_type == 'channel' else 'group chat'} …{tail}"
 
@@ -172,7 +191,8 @@ def build_org(
     records: Iterable[ConsentRecord], projects: Iterable[ProjectTeam], settings: Settings,
     mapping: Optional[dict[str, str]] = None,
 ) -> Org:
-    records, projects = list(records), sorted(projects, key=lambda p: (p.name.lower(), p.team_id))
+    records = [r for r in records if r.scope_type in CONVERSATION_TYPES]  # sites and mailboxes are sources, not projects' chats
+    projects = sorted(projects, key=lambda p: (p.name.lower(), p.team_id))
     mapping = settings.account_by_project if mapping is None else mapping
 
     by_project: dict[str, list[ConsentRecord]] = defaultdict(list)
@@ -231,9 +251,12 @@ def _utc(dt: datetime) -> datetime:
 
 
 def public_event(e: AuditEvent) -> DashboardEvent:
-    """An audit event without people: a role instead of a name, no authors / member names / message ids."""
+    """An audit event without people: a role instead of a name, no authors / member names / message ids,
+    and nothing that describes one newcomer's assessment."""
     if e.actor_name == "LegacyLens":
         role = "LegacyLens"
+    elif e.actor_name and e.actor_name.startswith("admin configuration"):
+        role = "system"
     elif e.actor_name or e.actor_aad_id:
         role = "member"
     else:
@@ -244,22 +267,34 @@ def public_event(e: AuditEvent) -> DashboardEvent:
         # A handover pack is about a named person; saying who is handing over is not for a dashboard.
         scope_name = "a team member"
         details.pop("title", None)
+    if e.action.startswith("onboarding."):
+        scope_name = "a new joiner"  # the session is named after the candidate
+        details = {k: v for k, v in details.items() if k in SAFE_ONBOARDING_DETAILS}
     return DashboardEvent(
         id=e.id, timestamp=e.timestamp, action=e.action, outcome=e.outcome, source=e.source, actor_role=role,
         scope_type=e.scope_type, scope_name=scope_name, count=e.count, details=details,
     )
 
 
-def in_scope(org: Org, level: str, node_id: str, scope_id: Optional[str]) -> bool:
+def event_project(org: Org, e: AuditEvent) -> Optional[str]:
+    """The project an event belongs to: by its conversation, or (onboarding) by the team id it records."""
+    found = org.project_of(e.scope_id)
+    if found is None:
+        team = e.details.get("project_team_id")
+        found = org.project_of(team) if isinstance(team, str) else None
+    return found
+
+
+def in_scope(org: Org, level: str, node_id: str, event: AuditEvent) -> bool:
     allowed = org.projects_under(level, node_id)
-    return True if allowed is None else org.project_of(scope_id) in allowed
+    return True if allowed is None else event_project(org, event) in allowed
 
 
 def filter_events(
     org: Org, level: str, node_id: str, events: Iterable[AuditEvent], since: datetime, until: datetime,
 ) -> list[AuditEvent]:
     since, until = _utc(since), _utc(until)
-    return [e for e in events if since <= _utc(e.timestamp) <= until and in_scope(org, level, node_id, e.scope_id)]
+    return [e for e in events if since <= _utc(e.timestamp) <= until and in_scope(org, level, node_id, e)]
 
 
 def _question_kind(e: AuditEvent) -> Optional[str]:
@@ -273,12 +308,53 @@ def _question_kind(e: AuditEvent) -> Optional[str]:
         return "answered"
     if reply == "no_answer":
         return "unanswered"
+    if reply == "runbook":
+        return "runbook"
     return "command"
 
 
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
+
+
+def _sync_error(details: dict[str, Any]) -> Optional[str]:
+    """Why a sync failed: its own error, or the first per-file error of a run that finished with some."""
+    errors = details.get("errors")
+    text = details.get("error") or (errors[0] if isinstance(errors, list) and errors else None)
+    return str(text)[:160] if text else None
+
+
+def _onboarding_summary(events: list[AuditEvent]) -> OnboardingSummary:
+    """Counts by session. Per-person detail (names, scores, topics studied) is never read here, and the readiness
+    spread and average appear only for a group of at least MIN_GROUP evaluations."""
+    o = OnboardingSummary(min_group=MIN_GROUP)
+    sessions: dict[str, set[str]] = defaultdict(set)
+    last_eval: dict[str, AuditEvent] = {}
+    for e in sorted(events, key=lambda e: e.timestamp):
+        verb, sid = e.action.split(".", 1)[1], e.scope_id or e.id
+        if e.outcome == "failure":
+            o.failed += 1
+            continue
+        sessions[verb].add(sid)
+        if verb == "question_asked":
+            o.learning_questions += 1
+            kind = str(e.details.get("kind") or "ask")
+            o.learning_by_kind[kind] = o.learning_by_kind.get(kind, 0) + 1
+            o.learning_unanswered += e.details.get("answered") is False
+        elif verb == "evaluated":
+            last_eval[sid] = e
+    o.assigned, o.started_learning = len(sessions["assigned"]), len(sessions["question_asked"])
+    o.assessments_started, o.completed = len(sessions["assessment_started"]), len(sessions["evaluated"])
+    o.results_posted = len(sessions["result_posted"])
+    if o.completed >= MIN_GROUP:
+        spread = Counter(str(e.details.get("readiness")) for e in last_eval.values())
+        o.readiness = {r: spread.get(r, 0) for r in ("ready", "almost", "needs_more_time")}
+        scores = [float(e.details["overall"]) for e in last_eval.values() if isinstance(e.details.get("overall"), (int, float))]
+        o.average_overall = round(sum(scores) / len(scores)) if scores else None
+    elif o.completed:
+        o.suppressed = True
+    return o
 
 
 def summarize(
@@ -291,7 +367,11 @@ def summarize(
     since, until = _utc(since), _utc(until)
     allowed = org.projects_under(level, node_id)
     evs = filter_events(org, level, node_id, events, since, until)
-    recs = [r for r in records if allowed is None or org.project_of(r.scope_id) in allowed]
+    records = list(records)
+    # Only chats and channels are "conversations". A SharePoint site has a consent record too, but it is a knowledge
+    # source: counting it as a conversation would inflate the numbers and put it under a project it does not belong to.
+    recs = [r for r in records if r.scope_type in CONVERSATION_TYPES and (allowed is None or org.project_of(r.scope_id) in allowed)]
+    site_recs = [r for r in records if r.scope_type == "site"]
 
     k = DashboardKpis(conversations_total=len(recs))
     for r in recs:
@@ -309,6 +389,14 @@ def summarize(
     confidences: list[float] = []
     citations: list[int] = []
     impacts: list[RiskImpact] = []
+    src = SourcesSummary(sites=len(site_recs))
+    # Files are counted once each, however many times they were (re)loaded: a rebuild reloads every file, and
+    # counting events would report each of them twice. Chunks come from each file's latest load.
+    file_sets: dict[str, set[str]] = defaultdict(set)
+    day_files: dict[str, set[str]] = defaultdict(set)
+    latest_load: dict[str, tuple[str, int]] = {}
+    file_names: dict[str, str] = {}
+    onboarding_events: list[AuditEvent] = []
 
     for e in sorted(evs, key=lambda e: e.timestamp):
         d = daily.get(_utc(e.timestamp).date().isoformat())
@@ -341,11 +429,51 @@ def summarize(
             k.chunks_indexed += _int(e.details.get("chunks"))
             for kind, n in (e.details.get("redactions") or {}).items():
                 redactions[kind] += _int(n)
+        elif e.action.startswith("consent.") and e.scope_type in ("site", "mailbox"):
+            pass  # an admin configured a source; that is not a person's Allow / Not now
         elif e.action.startswith("consent."):
             verb = e.action.split(".", 1)[1]
             funnel[verb] += 1
             if verb in ("granted", "declined", "paused") and d is not None:
                 d.consent_decisions += 1
+        elif e.action == "capture.file":
+            change, status = str(e.details.get("change", "")), str(e.details.get("status", ""))
+            name = str(e.details.get("file", ""))
+            ident = e.item_ids[0] if e.item_ids else f"{e.details.get('path', '')}/{name}"
+            if e.outcome == "failure":
+                file_sets["failed"].add(ident)
+            elif e.outcome == "skipped":
+                file_sets["skipped"].add(ident)
+            elif change == "deleted":
+                file_sets["deleted"].add(ident)
+                latest_load[ident] = ("deleted", 0)
+            else:
+                file_sets["modified" if change == "modified" else "added"].add(ident)
+                latest_load[ident] = (change, _int(e.count))
+                file_names[ident] = name
+                if d is not None:
+                    day_files[d.date].add(ident)
+            src.recent_files.append(FileEventView(
+                timestamp=_utc(e.timestamp), change=change, file=name, path=str(e.details.get("path", "")),
+                status=status, chunks=_int(e.count), outcome=e.outcome,
+                error=str(e.details["error"])[:160] if e.details.get("error") else None))
+        elif e.action == "sync.sharepoint":
+            src.sync_runs += 1
+            src.sync_failures += e.outcome == "failure"
+            src.last_sync, src.last_sync_outcome = _utc(e.timestamp), e.outcome
+            dd = e.details
+            src.recent_syncs.append(SyncRun(
+                timestamp=_utc(e.timestamp), outcome=e.outcome, added=_int(dd.get("added")), modified=_int(dd.get("modified")),
+                deleted=_int(dd.get("deleted")), unchanged=_int(dd.get("unchanged")), failed=_int(dd.get("failed")),
+                unsupported=_int(dd.get("unsupported")), chunks_indexed=_int(dd.get("chunks_indexed")),
+                seconds=float(dd.get("duration_seconds") or 0.0), full=bool(dd.get("full")),
+                error=_sync_error(dd)))
+        elif e.action == "knowledge.rebuilt":
+            src.rebuilds.append(RebuildEvent(
+                timestamp=_utc(e.timestamp), reason=str(e.details.get("reason", "")),
+                sharepoint_files=_int(e.details.get("sharepoint_files")), teams_messages=_int(e.details.get("teams_messages"))))
+        elif e.action.startswith("onboarding."):
+            onboarding_events.append(e)
         elif e.action == "detection.chat_invited":
             k.chats_detected += 1
         elif e.action == "interview.started":
@@ -365,6 +493,8 @@ def summarize(
             if kind:
                 if kind == "command":
                     k.commands += 1
+                elif kind == "runbook":
+                    k.runbooks_requested += 1
                 elif kind == "failed":
                     k.questions_failed += 1
                 else:
@@ -386,6 +516,21 @@ def summarize(
     k.answer_rate = round(k.questions_answered / asked, 3) if asked else None
     k.avg_confidence = round(sum(confidences) / len(confidences), 2) if confidences else None
     k.avg_citations = round(sum(citations) / len(citations), 2) if citations else None
+    onb = _onboarding_summary(onboarding_events)
+    src.files_added, src.files_modified = len(file_sets["added"]), len(file_sets["modified"])
+    src.files_deleted, src.files_failed, src.files_skipped = len(file_sets["deleted"]), len(file_sets["failed"]), len(file_sets["skipped"])
+    src.chunks_indexed = sum(chunks for change, chunks in latest_load.values() if change != "deleted")
+    types: Counter = Counter()
+    for ident in file_sets["added"] | file_sets["modified"]:
+        name = file_names.get(ident, "")
+        types[name.rsplit(".", 1)[-1].lower() if "." in name else "other"] += 1
+    src.by_type = dict(types.most_common())
+    for date, idents in day_files.items():
+        daily[date].files_synced = len(idents)
+    newest = lambda x: x.timestamp  # noqa: E731
+    src.recent_syncs = sorted(src.recent_syncs, key=newest, reverse=True)[:RECENT_SYNCS]
+    src.recent_files = sorted(src.recent_files, key=newest, reverse=True)[:RECENT_FILES]
+    src.rebuilds = sorted(src.rebuilds, key=newest, reverse=True)[:5]
 
     rec_by_scope = {r.scope_id: r for r in recs}
     conversations = []
@@ -414,8 +559,8 @@ def summarize(
         notes.append("Some conversations were allowed before this period, or before auditing began. They are in the "
                      "consent register but not in this period's decision counts.")
     if level != "org":
-        notes.append("Interviews, generated documents and API questions belong to the shared knowledge base, "
-                     "so they appear in the organisation view only.")
+        notes.append("Interviews, generated documents, SharePoint files and API questions belong to the shared knowledge "
+                     "base, so they appear in the organisation view only.")
     if not evs:
         notes.append("No audit events in this period.")
 
@@ -431,6 +576,8 @@ def summarize(
                            key=lambda x: (-x.count, x.category)),
         conversations=conversations[:TOP_CONVERSATIONS],
         risk_impact=sorted(impacts, key=lambda r: r.approved_at) if level == "org" else [],
+        sources=src if level == "org" else None,
+        onboarding=onb,
         recent_failures=failures[:RECENT_FAILURES],
         governance=list(GOVERNANCE), notes=notes,
     )
@@ -440,6 +587,13 @@ def consent_register(org: Org, level: str, node_id: str, records: Iterable[Conse
     allowed = org.projects_under(level, node_id)
     rows = []
     for r in records:
+        if r.scope_type not in CONVERSATION_TYPES:  # a SharePoint site / mailbox: shared, listed at org level only
+            if allowed is None:
+                rows.append(ConsentRegisterRow(
+                    scope_id=r.scope_id, name=conversation_name(r), type=r.scope_type, status=r.status,
+                    approved_by=r.granted_by, updated_at=r.updated_at, project=SHARED_SOURCE_PROJECT, account="",
+                    auto_installed=False))
+            continue
         pid = org.project_of(r.scope_id) or UNASSIGNED_PROJECT_ID
         if allowed is not None and pid not in allowed:
             continue

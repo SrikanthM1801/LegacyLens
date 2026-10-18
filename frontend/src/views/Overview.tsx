@@ -101,6 +101,16 @@ export function Overview({ s }: { s: DashboardSummary }) {
           </span>}
           sub={k.failures ? `${plural(k.security_events, "security event")}` : "Nothing failed"}
         />
+        {isOrg && s.sources && (
+          <StatTile
+            label="Files synced from SharePoint" value={s.sources.files_added + s.sources.files_modified}
+            sub={`${s.sources.files_deleted} removed · ${s.sources.files_failed} failed`}
+          />
+        )}
+        <StatTile
+          label="Onboarding assessments completed" value={s.onboarding.completed}
+          sub={s.onboarding.assigned ? `${s.onboarding.assigned} assigned` : "None assigned in this period"}
+        />
         {isOrg
           ? <StatTile label="Interviews approved" value={k.interviews_approved} sub={`${plural(k.documents_generated, "document")} generated`} />
           : <StatTile label="Chats detected" value={k.chats_detected} sub="Project group chats LegacyLens joined to ask for consent" />}

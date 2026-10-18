@@ -9,8 +9,10 @@ import { fmtDateTime } from "../format";
 import { useAsync } from "../hooks";
 import type { ConsentRow, ConsentStatus, DashboardSummary, GovernanceItem, Scope } from "../types";
 
+const TYPE_LABEL: Record<string, string> = { channel: "channel", chat: "group chat", site: "SharePoint site", mailbox: "mailbox" };
+
 const cols: Column<ConsentRow>[] = [
-  { header: "Conversation", render: (r) => <>{r.name} <span style={{ color: "var(--muted)" }}>· {r.type === "chat" ? "group chat" : "channel"}{r.auto_installed ? " · joined on detection" : ""}</span></> },
+  { header: "Conversation or source", render: (r) => <>{r.name} <span style={{ color: "var(--muted)" }}>· {TYPE_LABEL[r.type] ?? r.type}{r.auto_installed ? " · joined on detection" : ""}</span></> },
   { header: "Project", render: (r) => r.project },
   { header: "Account", render: (r) => r.account, muted: true },
   { header: "Status", render: (r) => <ConsentChip status={r.status} /> },
@@ -53,7 +55,7 @@ export function Consent({ summary, scope, adminKey }: { summary: DashboardSummar
 
       <Card
         title="Consent register"
-        subtitle="Every conversation LegacyLens knows about and who decided. This is the one place a person is named: accountability for the decision."
+        subtitle="Every conversation and source LegacyLens knows about, and who decided. This is the one place a person is named: accountability for the decision. A SharePoint site is allowed by an admin configuring it."
       >
         <div className="field" style={{ marginBottom: 12 }}>
           <label htmlFor="c-status">Show</label>

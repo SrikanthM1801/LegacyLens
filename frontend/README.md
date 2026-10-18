@@ -52,6 +52,12 @@ from the knowledge base, the sample dataset or a mock. The badge next to the tit
 - **Overview:** the hero "conversations allowed" with a consent meter, stat tiles, messages and questions
   per day, where it is learning, what it did, what was redacted, consent decisions, knowledge risk before and
   after interviews (org level), recent failures.
+- **Knowledge sources:** SharePoint files added, changed, removed, skipped or failed (each file counted once, even when a
+  rebuild reloads it), sync runs with the reason for any failure, file types, rebuilds. Org level only. File names are
+  shown; who edited a file is not.
+- **Onboarding:** the assignment, learning, assessment and result funnel, what newcomers ask for, and the knowledge
+  gaps they hit. Counts by session only: no names, no individual scores. The readiness spread and average appear only
+  for a group of at least 3 assessments (`MIN_GROUP` in `backend/app/services/dashboard.py`).
 - **Consent and data:** what is processed and where it is kept, and the consent register (the one place a
   person is named: who clicked Allow).
 - **Audit trail:** the events, filterable. People appear as a role, never a name; no message text anywhere.

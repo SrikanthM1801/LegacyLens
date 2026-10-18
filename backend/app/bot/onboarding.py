@@ -38,6 +38,8 @@ _SCHEMA = {"type": "AdaptiveCard", "$schema": "http://adaptivecards.io/schemas/a
 
 
 def _audit(action: str, s: OnboardingSession, outcome: str = "success", **fields) -> None:
+    # The team id lets the dashboard roll sessions up to their project (it names no person).
+    fields["details"] = {**(fields.get("details") or {}), "project_team_id": s.project_team_id}
     audit.record(f"onboarding.{action}", outcome=outcome, source="teams", scope_type="onboarding",
                  scope_id=s.id, scope_name=s.candidate_name, **fields)
 

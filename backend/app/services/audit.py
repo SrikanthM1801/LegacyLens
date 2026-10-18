@@ -18,8 +18,10 @@ import atexit
 import json
 import logging
 import queue
+import re
 import threading
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any, Iterable, Optional, Protocol
@@ -33,6 +35,8 @@ MAX_ITEM_IDS = 50                  # per event; bigger batches keep the count, n
 MEMORY_LIMIT = 5000
 FLUSH_EVERY_S = 2.0
 MAX_QUERY_DAYS = 31
+READ_WORKERS = 8                   # parallel blob downloads
+READ_CACHE_BLOBS = 2000            # parsed hourly blobs kept in memory (about 3 months of hours)
 
 
 class AuditLog(Protocol):
@@ -60,6 +64,15 @@ class MemoryAuditLog:
     def clear(self) -> None:
         with self._lock:
             self._events.clear()
+
+
+_BLOB_NAME = re.compile(r"^events/(\d{4})/(\d{2})/(\d{2})/(\d{2})\.jsonl$")
+
+
+def blob_hour(name: str) -> Optional[datetime]:
+    """The UTC hour an audit blob covers, from its name (events/YYYY/MM/DD/HH.jsonl); None for anything else."""
+    m = _BLOB_NAME.match(name)
+    return datetime(*map(int, m.groups()), tzinfo=timezone.utc) if m else None
 
 
 def blob_name(ts: datetime) -> str:
@@ -118,23 +131,40 @@ class BlobAuditLog:
         self._queue.join()
 
     def query(self, since: datetime, until: datetime) -> list[AuditEvent]:
+        """Events in [since, until], oldest first.
+
+        One listing call (not one per day: a month of days was ~30 sequential round trips), then only the hourly blobs
+        that overlap the window, read in parallel. A blob's parsed events are cached by (name, size): appending an
+        event changes the size, so a stale entry can never be served, and an hour that is over is never downloaded twice.
+        """
         from azure.core.exceptions import ResourceNotFoundError
 
-        out: list[AuditEvent] = []
-        day = since.astimezone(timezone.utc).date()
-        while day <= until.astimezone(timezone.utc).date():
-            for item in self._container.list_blobs(name_starts_with=f"events/{day:%Y/%m/%d}/"):
-                try:
-                    data = self._container.get_blob_client(item.name).download_blob().readall()
-                except ResourceNotFoundError:
-                    continue
-                for line in data.decode("utf-8").splitlines():
-                    if line.strip():
-                        e = AuditEvent.model_validate_json(line)
-                        if since <= e.timestamp <= until:
-                            out.append(e)
-            day += timedelta(days=1)
-        return out
+        lo, hi = since.astimezone(timezone.utc), until.astimezone(timezone.utc)
+        wanted = []
+        for item in self._container.list_blobs(name_starts_with="events/"):
+            start = blob_hour(item.name)
+            if start is not None and start <= hi and start + timedelta(hours=1) > lo:
+                wanted.append((item.name, getattr(item, "size", None)))
+        cache: dict = self.__dict__.setdefault("_read_cache", {})
+
+        def load(entry: tuple[str, Optional[int]]) -> list[AuditEvent]:
+            name, size = entry
+            if size is not None and (name, size) in cache:
+                return cache[(name, size)]
+            try:
+                data = self._container.get_blob_client(name).download_blob().readall()
+            except ResourceNotFoundError:
+                return []
+            events = [AuditEvent.model_validate_json(line) for line in data.decode("utf-8").splitlines() if line.strip()]
+            if size is not None:
+                if len(cache) >= READ_CACHE_BLOBS:
+                    cache.clear()
+                cache[(name, size)] = events
+            return events
+
+        with ThreadPoolExecutor(max_workers=READ_WORKERS) as pool:
+            chunks = list(pool.map(load, wanted))
+        return [e for chunk in chunks for e in chunk if lo <= e.timestamp <= hi]
 
 
 @lru_cache

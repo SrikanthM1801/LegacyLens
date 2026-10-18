@@ -19,6 +19,8 @@ from app.services.consent_store import MemoryConsentStore, TableConsentStore, ge
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
 SINCE = NOW - timedelta(days=30)
 NAMES = ("Priya Nair", "Arjun Mehta", "Meera Iyer", "Dana Whitfield", "Luis Ortega", "Ravi Kumar")
+CANDIDATES = ("Meera Iyer", "Sam Carter", "Nia Okafor", "Tom Becker", "Ida Lindqvist", "Raj Patel")   # onboarding newcomers
+EDITORS = ("Priya Nair", "Ravi Kumar", "Arjun Mehta", "Meera Iyer", "Dana Whitfield")                # people who edited files
 
 
 @pytest.fixture(scope="module")
@@ -217,7 +219,10 @@ def test_public_event_roles():
 def test_consent_register_names_the_approver_and_scopes(demo):
     org, _, records = demo
     rows = dashboard.consent_register(org, "org", "org", records)
-    assert len(rows) == 7 and {r.status for r in rows} == {"granted", "paused", "declined", "pending"}
+    assert len(rows) == 8 and {r.status for r in rows} == {"granted", "paused", "declined", "pending"}
+    assert {r.type for r in rows} == {"channel", "chat", "site"}
+    site = next(r for r in rows if r.type == "site")
+    assert site.project == dashboard.SHARED_SOURCE_PROJECT and site.account == "" and "admin configuration" in site.approved_by
     by_name = {r.name: r for r in rows}
     assert by_name["Gateway incident bridge"].approved_by == "Arjun Mehta" and by_name["Gateway incident bridge"].auto_installed
     assert by_name["Release planning"].approved_by is None and by_name["Release planning"].account == "Northwind Retail"
@@ -244,7 +249,7 @@ def test_demo_seed_never_touches_real_storage():
     log = audit.MemoryAuditLog()
     store = MemoryConsentStore()
     n = seed_demo(log, store, NOW)
-    assert n == len(log.query(NOW - timedelta(days=40), NOW)) and len(store.list()) == 7 and len(store.projects()) == 3
+    assert n == len(log.query(NOW - timedelta(days=40), NOW)) and len(store.list()) == 8 and len(store.projects()) == 3
 
 
 # --- names and project assignment of real-world records -------------------------------------------
@@ -363,12 +368,12 @@ def test_api_events_are_anonymised_and_filterable(client):
     assert len(client.get("/dashboard/events", params={"limit": 5}).json()["items"]) == 5
     tree = client.get("/dashboard/hierarchy").json()
     prj = client.get("/dashboard/events", params={"level": "project", "id": node_id(tree, "Merchant Onboarding"), "limit": 1000}).json()
-    assert 0 < prj["total"] < body["total"] and all(i["scope_type"] in ("channel", "chat", "team") for i in prj["items"])
+    assert 0 < prj["total"] < body["total"] and all(i["scope_type"] in ("channel", "chat", "team", "onboarding") for i in prj["items"])
 
 
 def test_api_consent_register(client):
     rows = client.get("/dashboard/consents").json()
-    assert len(rows) == 7
+    assert len(rows) == 8
     tree = client.get("/dashboard/hierarchy").json()
     one = client.get("/dashboard/consents", params={"level": "project", "id": node_id(tree, "Payments Platform")}).json()
     assert {r["name"] for r in one} == {"Payments Platform", "Gateway incident bridge", "Settlement ops"}

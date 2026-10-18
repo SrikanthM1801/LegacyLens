@@ -8,11 +8,16 @@ import { useAdminKey, useAsync } from "./hooks";
 import type { Scope } from "./types";
 import { AuditTrail } from "./views/AuditTrail";
 import { Consent } from "./views/Consent";
+import { Onboarding } from "./views/Onboarding";
+import { Sources } from "./views/Sources";
 import { Overview } from "./views/Overview";
 
-type Tab = "overview" | "consent" | "audit";
+type Tab = "overview" | "sources" | "onboarding" | "consent" | "audit";
 type Theme = "system" | "light" | "dark";
-const TABS: [Tab, string][] = [["overview", "Overview"], ["consent", "Consent and data"], ["audit", "Audit trail"]];
+const TABS: [Tab, string][] = [
+  ["overview", "Overview"], ["sources", "Knowledge sources"], ["onboarding", "Onboarding"],
+  ["consent", "Consent and data"], ["audit", "Audit trail"],
+];
 const THEME_KEY = "legacylens.theme";
 const ORG: Scope = { level: "org", id: "org" };
 
@@ -84,6 +89,8 @@ export function App() {
         )}
         {!summary.data && summary.loading && <p className="empty" role="status">Loading…</p>}
         {summary.data && tab === "overview" && <Overview s={summary.data} />}
+        {summary.data && tab === "sources" && <Sources s={summary.data} />}
+        {summary.data && tab === "onboarding" && <Onboarding s={summary.data} />}
         {summary.data && tab === "consent" && <Consent summary={summary.data} scope={scope} adminKey={adminKey} />}
         {tab === "audit" && <AuditTrail scope={scope} days={days} adminKey={adminKey} />}
       </main>

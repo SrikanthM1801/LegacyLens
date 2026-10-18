@@ -607,7 +607,8 @@ class DashboardKpis(Base):
     answer_rate: Optional[float] = None            # answered / (answered + unanswered)
     avg_confidence: Optional[float] = None         # API questions only; the bot does not log it
     avg_citations: Optional[float] = None
-    commands: int = 0                              # help / risks / pause replies
+    commands: int = 0                              # help / risks / pause / topics / status replies
+    runbooks_requested: int = 0                    # "@LegacyLens runbook <topic>" replies
     interviews_started: int = 0
     interviews_answered: int = 0
     interviews_approved: int = 0
@@ -619,6 +620,7 @@ class DashboardKpis(Base):
 
 class DailyActivity(Base):
     date: str                                      # YYYY-MM-DD (UTC)
+    files_synced: int = 0                          # SharePoint files added or modified (org level)
     messages_captured: int = 0
     questions: int = 0
     consent_decisions: int = 0
@@ -675,6 +677,82 @@ class GovernanceItem(Base):
     retention: str
 
 
+class SyncRun(Base):
+    """One SharePoint sync run, from its `sync.sharepoint` audit event."""
+
+    timestamp: datetime
+    outcome: str
+    added: int = 0
+    modified: int = 0
+    deleted: int = 0
+    unchanged: int = 0
+    failed: int = 0
+    unsupported: int = 0
+    chunks_indexed: int = 0
+    seconds: float = 0.0
+    full: bool = False
+    error: Optional[str] = None                    # why a run failed (a status or hint, never file contents)
+
+
+class FileEventView(Base):
+    """One file event without the person who edited it (names stay out of the dashboard)."""
+
+    timestamp: datetime
+    change: str                                    # added | modified | deleted
+    file: str
+    path: str = ""
+    status: str = ""                               # loaded | failed | unsupported | deleted | empty
+    chunks: int = 0
+    outcome: str = "success"
+    error: Optional[str] = None
+
+
+class RebuildEvent(Base):
+    timestamp: datetime
+    reason: str = ""
+    sharepoint_files: int = 0
+    teams_messages: int = 0
+
+
+class SourcesSummary(Base):
+    """Knowledge loaded from SharePoint. The site belongs to the shared knowledge base, so org level only."""
+
+    sites: int = 0                                 # SharePoint sites with a consent record
+    files_added: int = 0
+    files_modified: int = 0
+    files_deleted: int = 0
+    files_failed: int = 0
+    files_skipped: int = 0                         # unsupported type or no text
+    chunks_indexed: int = 0
+    sync_runs: int = 0
+    sync_failures: int = 0
+    last_sync: Optional[datetime] = None
+    last_sync_outcome: Optional[str] = None
+    by_type: dict[str, int] = Field(default_factory=dict)      # added/modified files by extension
+    recent_syncs: list[SyncRun] = Field(default_factory=list)
+    recent_files: list[FileEventView] = Field(default_factory=list)
+    rebuilds: list[RebuildEvent] = Field(default_factory=list)
+
+
+class OnboardingSummary(Base):
+    """Onboarding assessments, counted by session. No names, no individual scores: the readiness spread is only
+    shown for a group of at least `min_group`, so a single newcomer's result cannot be read off a chart."""
+
+    assigned: int = 0
+    started_learning: int = 0                      # sessions where the newcomer asked at least one question
+    assessments_started: int = 0
+    completed: int = 0                             # evaluated
+    results_posted: int = 0
+    failed: int = 0                                # failed events (assignment, evaluation, delivery)
+    learning_questions: int = 0
+    learning_unanswered: int = 0                   # "I couldn't find this": gaps in the knowledge base
+    learning_by_kind: dict[str, int] = Field(default_factory=dict)
+    readiness: Optional[dict[str, int]] = None     # ready | almost | needs_more_time; None when suppressed
+    average_overall: Optional[int] = None          # 0-100; None when suppressed
+    min_group: int = 3
+    suppressed: bool = False                       # True: assessments exist but fewer than min_group
+
+
 class DashboardSummary(Base):
     #: Where the numbers come from. "azure" = the audit blobs and consent tables; "memory" = events recorded
     #: by this process only (offline); "demo" = generated demo data (offline only). Never mixed.
@@ -690,6 +768,8 @@ class DashboardSummary(Base):
     by_category: list[CategoryCount] = Field(default_factory=list)
     conversations: list[ConversationActivity] = Field(default_factory=list)
     risk_impact: list[RiskImpact] = Field(default_factory=list)
+    sources: Optional[SourcesSummary] = None       # org level only
+    onboarding: OnboardingSummary = Field(default_factory=OnboardingSummary)
     recent_failures: list[DashboardEvent] = Field(default_factory=list)
     governance: list[GovernanceItem] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
