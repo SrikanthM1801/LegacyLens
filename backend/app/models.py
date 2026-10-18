@@ -917,7 +917,7 @@ class Departure(Base):
     service_url: str = ""
     tenant_id: Optional[str] = None
     conversation_id: Optional[str] = None          # 1:1 chat with the departing person
-    status: Literal["alerted", "interviewing", "reviewing", "completed", "no_risk", "cancelled"] = "alerted"
+    status: Literal["alerted", "interviewing", "reviewing", "publishing", "completed", "no_risk", "cancelled"] = "alerted"
     at_risk: list[AtRiskTopic] = Field(default_factory=list)
     session_ids: list[str] = Field(default_factory=list)   # InterviewSession ids, one per topic
     interviewee_id: Optional[str] = None           # graph person id answers are attributed to

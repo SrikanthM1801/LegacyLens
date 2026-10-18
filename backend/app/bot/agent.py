@@ -282,11 +282,14 @@ async def handle_personal_departure(context: TurnContext, command: str, text: st
         await context.send_activity("This handover is no longer open.")
         return True
     if verb == departure.APPROVE_VERB:
-        try:
-            await context.send_activity(Activity(type="typing"))
-        except Exception:
-            pass
-        await context.send_activity(await departure.approve(d))
+        problem = await asyncio.to_thread(departure.begin_approval, d)
+        if problem:
+            await context.send_activity(problem)
+            return True
+        # Reply now: Teams shows "Something went wrong" if a card click takes longer than ~15 s.
+        await context.send_activity("⏳ Publishing your answers and updating the handover pack. This takes a minute or two; "
+                                    "I'll confirm here and post the result in the project channel.")
+        _spawn(departure.approve_in_background(d.id))
         return True
     if verb == departure.ANSWER_VERB or (d.status == "interviewing" and command not in replies.COMMANDS
                                          and not command.startswith(("ask ", "runbook "))):

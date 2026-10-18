@@ -52,7 +52,7 @@ MIN_SHARE = 0.5
 MAX_TOPICS_ALERT = 5
 TOPICS_TO_INTERVIEW = 2
 QUESTIONS_PER_TOPIC = 2
-ACTIVE = ("alerted", "interviewing", "reviewing")
+ACTIVE = ("alerted", "interviewing", "reviewing", "publishing")
 _SCHEMA = {"type": "AdaptiveCard", "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "version": "1.5"}
 _BADGE = {"high": "🔴", "medium": "🟠", "low": "🟢"}
 
@@ -360,8 +360,40 @@ def answer(d: Departure, session_id: Optional[str], question_id: Optional[str], 
     return review_card(d, review), "That's all. Please check your answers:"
 
 
-async def approve(d: Departure) -> str:
+def begin_approval(d: Departure) -> Optional[str]:
+    """Mark the handover as publishing (so a second click is ignored). Returns an error message or None."""
+    if d.status == "publishing":
+        return "⏳ Already publishing your answers, one moment."
     if d.status != "reviewing":
+        return "There's nothing waiting for your approval."
+    d.status = "publishing"
+    departures().save(d)
+    return None
+
+
+async def approve_in_background(departure_id: str) -> None:
+    """Publishing takes 1-2 minutes with real models (index, recompute risks, rewrite the pack), longer than
+    Teams waits for a card click, so it runs here and confirms in the person's 1:1 chat when done."""
+    d = departures().get(departure_id)
+    if d is None:
+        return
+    try:
+        reply = await approve(d)
+    except Exception as e:  # keep the answers; let them retry
+        log.exception("handover approval failed")
+        d.status, d.error = "reviewing", f"publishing failed: {type(e).__name__}"
+        departures().save(d)
+        _audit("knowledge_published", d, outcome="failure", details={"error": d.error})
+        reply = "Sorry, publishing failed. Please tap **Approve & publish** again in a minute."
+    if d.conversation_id:
+        try:
+            await get_connector().send(d.conversation_id, {"type": "message", "text": reply}, d.service_url)
+        except ConnectorError as e:
+            log.warning("could not confirm the handover: %s", e)
+
+
+async def approve(d: Departure) -> str:
+    if d.status not in ("reviewing", "publishing"):
         return "There's nothing waiting for your approval."
 
     def publish() -> list:

@@ -92,12 +92,14 @@ def test_full_handover_alert_interview_approve_risk_drops_and_pack_saved():
                                       "Check `gwctl pool-status` first, then restart pg-adapter; escalate to the acquirer NOC after 10 minutes.")
     assert "check your answers" in text and "Approve & publish" in str(card)
     before = d.at_risk[0].risk_score
-    done = asyncio.run(departure.approve(departure.active_for(RAVI_AAD)))
-    assert "Published" in done
+    active = departure.active_for(RAVI_AAD)
+    assert departure.begin_approval(active) is None and departure.begin_approval(active).startswith("⏳")  # double click
+    asyncio.run(departure.approve_in_background(d.id))
+    assert "Published" in get_connector().sent[-1][1]["text"]  # confirmation in the 1:1 chat
     final = departure.departures().get(d.id)
     gw = final.at_risk[0]
     assert final.status == "completed" and gw.risk_after is not None and gw.risk_after < before
-    assert "Knowledge captured from Ravi" in str(get_connector().sent[-1][1])
+    assert any("Knowledge captured from Ravi" in str(a) for _, a in get_connector().sent)
     import docx
     doc = docx.Document(io.BytesIO(get_graph_api().uploads[draft[0]]))
     assert any("Ravi" in p.text for p in doc.paragraphs)
@@ -185,3 +187,21 @@ def test_live_extraction_links_people_named_in_documents_and_chat_authors():
     assert ("person_doc_subash", "DECIDED", "dec_use_aks") in rel
     assert ("person_aad_kavi", "DISCUSSED", "proc_raid_log") in rel
     assert ("proc_raid_log", "DOCUMENTED_BY", doc.id) in rel
+
+
+def test_approve_click_is_acknowledged_immediately_and_published_in_background(client, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(agent, "_spawn", spawned.append)
+    departure.link_person(RAVI_AAD, "Ravi Kumar", "Ravi Kumar", "o")
+    d, _ = asyncio.run(departure.start(aad_id=RAVI_AAD, name="Ravi Kumar", source="self"))
+    total = sum(len(interview_store.get(s).questions) for s in d.session_ids)
+    for _ in range(total):
+        departure.answer(departure.active_for(RAVI_AAD), None, None, "Run gwctl pool-status, restart pg-adapter, escalate after 10 min.")
+    ravi = {"id": "29:ravi", "name": "Ravi Kumar", "aadObjectId": RAVI_AAD}
+    personal = {"id": d.conversation_id, "conversationType": "personal"}
+    [ack] = _say(client, "", ravi, personal, value={"verb": departure.APPROVE_VERB, "departure_id": d.id})
+    assert ack["text"].startswith("⏳ Publishing") and len(spawned) == 1
+    [again] = _say(client, "", ravi, personal, value={"verb": departure.APPROVE_VERB, "departure_id": d.id})
+    assert "Already publishing" in again["text"] and len(spawned) == 1
+    asyncio.run(spawned.pop())
+    assert departure.departures().get(d.id).status == "completed"
